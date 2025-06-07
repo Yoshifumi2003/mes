@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+<meta charset="utf-8"/>
+<title>Sound Room (fix volume v15)</title>
+<style>
+:root{
+  --track-height:40px;
+  --row-gap:10px;
+  --sidebar-width:220px;
+  --beat-width:50px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:sans-serif;background:#fff;color:#000;}
+header{background:#000;color:#fff;padding:10px 20px;font-size:18px;}
+.developer{font-size:12px;color:#555;float:right;}
+.controls{background:#e0e0e0;padding:10px 20px;white-space:nowrap;}
+.controls button{margin-right:10px;padding:8px 12px;}
+.controls select{margin-left:10px;padding:6px 8px;}
+#trackWrapper{position:relative;width:100%;height:720px;display:flex;overflow:hidden;}
+#trackSidebar{position:relative;width:var(--sidebar-width);background:#ddd;border-right:2px solid #999;z-index:11;
+  background-image:repeating-linear-gradient(to bottom,#ddd 0px,#ddd 1px,transparent 1px calc(var(--track-height)+var(--row-gap)));
+}
+#trackArea{position:relative;flex:1;overflow-x:auto;overflow-y:hidden;background:#fff;}
+#timelineOverlay{pointer-events:none;position:absolute;top:0;left:0;height:100%;z-index:55;}
+#tracksContainer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;}
+.track{position:absolute;height:var(--track-height);line-height:var(--track-height);border-radius:4px;color:#fff;font-weight:bold;cursor:move;padding-left:10px;}
+.track audio{display:none;}
+.resize-handle{position:absolute;right:0;top:0;width:10px;height:100%;background:rgba(0,0,0,0.3);cursor:ew-resize;}
+.trackSidebar{position:absolute;left:0;width:100%;height:var(--track-height);display:flex;align-items:center;gap:6px;padding:0 8px;font-size:14px;border-bottom:1px solid #ccc;background:transparent;}
+.trackSidebar input[type='range']{flex:1 1 auto;}
+</style>
+</head>
+<body>
+<header>♪Sound Room <span class="developer">MORITA Education System×道北音楽教育研究所<br/><span style='font-size: 10px;'>©2025 Yoshifumi Morita</span></span></header>
+<div class="controls">
+<button id="recordBtn">録音開始</button>
+<button id="stopBtn">録音停止</button>
+<button id="fileAddBtn">ファイル追加</button>
+<button id="saveBtn">保存</button>
+<button id="openBtn">開く</button>
+<button id="playBtn">再生</button>
+<button id="pauseBtn">一時停止</button>
+<span id="recTime">録音時間: 0秒</span>   拍子:<select id="meterSelect"><option value="3">3拍子</option><option selected="" value="4">4拍子</option></select>   テンポ:<input id="tempoSlider" max="240" min="30" step="1" type="range" value="60"/><span id="bpmDisplay">60</span> BPM
+</div>
+<div id="trackWrapper">
+<div id="trackSidebar"></div>
+<div id="trackArea">
+<div id="timelineOverlay"></div>
+<div id="tracksContainer"></div>
+</div>
+</div>
+
+<input accept="audio/*" id="hiddenFileInput" multiple="" style="display:none;" type="file"/>
+<input accept=".soundroomproj,.json" id="hiddenProjectInput" style="display:none;" type="file"/>
+<script>
+// ----- Constants -----
+const beatWidth = 50;
+const trackHeight = 40;
+const rowGap = 10;
+const trackSpacing = trackHeight + rowGap;
+const totalBeats = 160; // 160拍ぶん描画
+let meter = 4;
+
+let mediaRecorder=null,chunks=[],trackIndex=0,currentTrackEl=null,currentAudioEl=null,timer=null;
+const trackColors=['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22'];
+
+// ----- Elements -----
+const recordBtn=document.getElementById('recordBtn');
+const stopBtn=document.getElementById('stopBtn');
+stopBtn.disabled = true;
+const playBtn=document.getElementById('playBtn');
+const pauseBtn=document.getElementById('pauseBtn');
+const restartBtn=document.getElementById('restartBtn');
+const fileAddBtn=document.getElementById('fileAddBtn');
+const hiddenFile=document.getElementById('hiddenFileInput');
+const saveBtn=document.getElementById('saveBtn');
+const openBtn=document.getElementById('openBtn');
+const hiddenProjectInput=document.getElementById('hiddenProjectInput');
+const meterSel=document.getElementById('meterSelect');
+const tempoSlider=document.getElementById('tempoSlider');
+const bpmDisplay=document.getElementById('bpmDisplay');
+const recTimeLabel=document.getElementById('recTime');
+
+// ----- Tempo -----
+let bpm=parseInt(tempoSlider.value);
+let playbackRate=bpm/60;
+tempoSlider.addEventListener('input',()=>{bpm=parseInt(tempoSlider.value);bpmDisplay.textContent=bpm;playbackRate=bpm/60;});
+
+// ----- Timeline Overlay -----
+function createTimeline(beats=totalBeats){
+  const ov=document.getElementById('timelineOverlay');
+  ov.innerHTML='';
+  ov.style.width=(beats*beatWidth)+'px';
+  for(let i=0;i<beats;i++){
+    const x=i*beatWidth;
+    // vertical line
+    const v=document.createElement('div');
+const isMeasureStart = (i % meter) === 0;
+const lineWidth = isMeasureStart ? 2 : 1;
+const lineOpacity = isMeasureStart ? 0.6 : 0.35;
+v.style.cssText=`position:absolute;top:0;bottom:0;left:${x}px;width:${lineWidth}px;background:rgba(0,0,0,${lineOpacity});`;
+ov.appendChild(v);
+    // beat number
+    const lbl=document.createElement('div');
+    lbl.style.cssText=`position:absolute;top:0;left:${x}px;width:${beatWidth}px;height:${rowGap}px;line-height:${rowGap}px;text-align:center;font-size:12px;background:rgba(255,255,255,0.9);`;
+    lbl.textContent=(i%meter)+1;
+    ov.appendChild(lbl);
+  }
+}
+createTimeline();
+
+// update timeline when meter changes
+meterSel.addEventListener('change',e=>{meter=parseInt(e.target.value);createTimeline();});
+
+// ----- Sidebar Row -----
+function addSidebarRow(index,audio){
+  const sidebar=document.getElementById('trackSidebar');
+  const row=document.createElement('div');
+  row.className='trackSidebar';
+  row.dataset.row = index;
+  row.style.top=(rowGap+index*trackSpacing)+'px';
+
+  const label=document.createElement('div');
+  label.textContent=`Track ${index+1}`;
+  label.contentEditable = "true";
+  label.style.minWidth = "60px";
+  label.style.outline = "none";
+  label.addEventListener('input', () => {
+    document.querySelectorAll(`.track[data-row="${index}"]`).forEach(tr=>{
+      // Update track text
+      for(const node of tr.childNodes){
+        if(node.nodeType===3){
+          node.textContent = label.textContent;
+          return;
+        }
+      }
+      tr.insertBefore(document.createTextNode(label.textContent), tr.firstChild);
+    });
+  });
+  row.appendChild(label);
+
+  const slider=document.createElement('input');
+  slider.type='range';slider.min=0;slider.max=1;slider.step=0.01;slider.value=1;
+  slider.oninput=()=>{document.querySelectorAll(`.track[data-row="${index}"] audio`).forEach(el=>el.volume=parseFloat(slider.value));};
+  row.appendChild(slider);
+  sidebar.appendChild(row);
+}
+// ----- Track Enhancements -----
+function enhanceTrack(track,audio){
+  const rh=document.createElement('div');
+  rh.className='resize-handle';
+  track.appendChild(rh);
+  // --- 左リサイズハンドルの追加 ---
+  const lh = document.createElement('div');
+  lh.className = 'resize-handle';
+  lh.style.left = '0px';
+  lh.style.right = 'auto';
+  lh.style.cursor = 'ew-resize';
+  track.appendChild(lh);
+
+  let resizingLeft = false;
+  let startLX = 0;
+  lh.addEventListener('mousedown', e => {
+    resizingLeft = true;
+    startLX = e.clientX;
+    e.stopPropagation();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (resizingLeft) {
+      const dx = e.clientX - startLX;
+      const newWidth = Math.max(beatWidth, parseFloat(track.style.width) - dx);
+      const newLeft = parseInt(track.style.left || 0) + dx;
+
+      if (newWidth >= beatWidth) {
+        track.style.width = newWidth + 'px';
+        track.style.left = newLeft + 'px';
+        startLX = e.clientX;
+      }
+    }
+  });
+
+  document.addEventListener('mouseup', () => resizingLeft = false);
+
+
+  const del=document.createElement('button');
+  del.textContent='×';
+  del.style.cssText='position:absolute;right:10px;top:5px;';
+  
+  del.onclick=()=>{
+    const top = parseInt(track.style.top);
+    track.remove();
+
+    // 同じtopにあるトラックが他にないか確認
+    const tracksSameRow = Array.from(document.querySelectorAll('.track')).filter(t => parseInt(t.style.top) === top);
+    if (tracksSameRow.length === 0) {
+      // 対応するSidebarも削除
+      document.querySelectorAll('.trackSidebar').forEach(sb=>{
+        if (parseInt(sb.style.top) === top) sb.remove();
+      });
+    }
+
+    // トラック削除後に trackIndex を見直す
+    const allTracks = Array.from(document.querySelectorAll('.track'));
+    if (allTracks.length > 0) {
+      const tops = allTracks.map(t => parseInt(t.style.top));
+      trackIndex = Math.floor(Math.max(...tops) / trackSpacing + 1);
+    } else {
+      trackIndex = 0;
+    }
+  };
+
+  track.appendChild(del);
+
+  const dup=document.createElement('button');
+  dup.textContent='＋';
+  dup.style.cssText='position:absolute;right:70px;top:5px;';
+  
+
+
+dup.onclick = () => {
+  const clone = track.cloneNode(true);
+  // Reset context‑menu patched flag on clone so patchTrack runs
+  clone.removeAttribute('data-cm-patched');
+
+  clone.dataset.row = track.dataset.row; // 子要素も含めてコピー
+  const originalAudio = track.querySelector('audio');
+  const newAudio = clone.querySelector('audio');
+
+  newAudio.src = originalAudio.src;
+  newAudio.volume = originalAudio.volume;
+
+  // トラック位置を少し右へずらす（左位置）
+  const currentLeft = parseInt(track.style.left || '0');
+  clone.style.left = (currentLeft + beatWidth) + 'px';
+
+  document.getElementById('tracksContainer').appendChild(clone);
+  enhanceTrack(clone, newAudio);
+  patchTrack(clone);
+};
+
+
+
+  track.appendChild(dup);
+
+  // dragging
+  let dragging=false,startX=0;
+  track.addEventListener('mousedown',e=>{
+    if(e.target.classList.contains('resize-handle'))return;
+    dragging=true;startX=e.clientX;document.body.style.cursor='grabbing';
+  });
+  document.addEventListener('mousemove',e=>{
+    if(dragging){
+      const dx=e.clientX-startX;
+      track.style.left=(parseInt(track.style.left||0)+dx)+'px';
+      startX=e.clientX;
+    }
+  });
+  document.addEventListener('mouseup',()=>{dragging=false;document.body.style.cursor='default';});
+
+  // resizing
+  let resizing=false,startRX=0;
+  rh.addEventListener('mousedown',e=>{resizing=true;startRX=e.clientX;e.stopPropagation();});
+  document.addEventListener('mousemove',e=>{
+    if(resizing){
+      const dx=e.clientX-startRX;
+      
+    const newWidth = Math.max(beatWidth, parseFloat(track.style.width) + dx);
+    track.style.width = newWidth + 'px';
+    
+      startRX=e.clientX;
+    }
+  });
+  document.addEventListener('mouseup',()=>resizing=false);
+}
+
+// ----- Recording -----
+recordBtn.onclick = () => {
+  recordBtn.disabled = true;
+  stopBtn.disabled = false;
+  navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}}).then(stream=>{
+    mediaRecorder=new MediaRecorder(stream);
+    chunks=[];
+    mediaRecorder.ondataavailable=e=>chunks.push(e.data);
+    mediaRecorder.onstop=()=>{
+      const blob=new Blob(chunks,{type:'audio/webm'});
+      currentAudioEl.src=URL.createObjectURL(blob);
+      trackIndex++;
+      chunks=[];
+    };
+    mediaRecorder.start();
+
+    // create track
+    const top=rowGap+trackIndex*trackSpacing;
+    currentTrackEl=document.createElement('div');
+    currentTrackEl.className='track';
+    currentTrackEl.dataset.row=trackIndex;
+    Object.assign(currentTrackEl.style,{left:'0px',top:top+'px',width:'1px',backgroundColor:trackColors[trackIndex%trackColors.length]});
+    currentTrackEl.textContent=`Track ${trackIndex+1}`;
+    currentAudioEl=document.createElement('audio');
+    currentTrackEl.appendChild(currentAudioEl);
+    document.getElementById('tracksContainer').appendChild(currentTrackEl);
+    addSidebarRow(trackIndex,currentAudioEl);
+
+    // timer
+    const startT=Date.now();
+    timer=setInterval(()=>{
+      const sec=Math.floor((Date.now()-startT)/1000);
+      recTimeLabel.textContent=`録音時間: ${sec}秒`;
+      currentTrackEl.style.width=(sec*beatWidth)+'px';
+    },1000);
+
+    enhanceTrack(currentTrackEl,currentAudioEl);
+  }).catch(console.error);
+};
+
+stopBtn.onclick=()=>{
+  if(mediaRecorder){
+    mediaRecorder.stop();
+    clearInterval(timer);
+    recTimeLabel.textContent='録音時間: 0秒';
+    recordBtn.disabled = false;
+    stopBtn.disabled = true;
+    mediaRecorder = null;
+  }
+};
+
+// ----- File Import -----
+fileAddBtn.onclick=()=>hiddenFile.click();
+hiddenFile.onchange=e=>{
+  Array.from(e.target.files).forEach(file=>{
+    const url=URL.createObjectURL(file);
+    addTrackFromFile(url,file.name);
+  });
+  hiddenFile.value='';
+
+  // reset recording controls (added v4)
+  if(recordBtn) recordBtn.disabled = false;
+  if(stopBtn) stopBtn.disabled = true;
+  if(typeof recTimeLabel !== 'undefined') recTimeLabel.textContent = '録音時間: 0秒';
+};
+function addTrackFromFile(url,label){
+  const top=rowGap+trackIndex*trackSpacing;
+  const tr=document.createElement('div');
+  tr.className='track';
+  tr.dataset.row = trackIndex;
+  Object.assign(tr.style,{left:'0px',top:top+'px',width:'100px',backgroundColor:trackColors[trackIndex%trackColors.length]});
+  tr.textContent=label;
+  const au=document.createElement('audio');au.src=url;tr.appendChild(au);
+  document.getElementById('tracksContainer').appendChild(tr);
+  addSidebarRow(trackIndex,au);
+  enhanceTrack(tr,au);
+  au.addEventListener('loadedmetadata',()=>{tr.style.width=(au.duration*beatWidth)+'px';});
+  trackIndex++;
+}
+
+// ----- Playback Management -----
+let playbackTimeouts=[];
+function clearPlaybackTimeouts(){
+  playbackTimeouts.forEach(id=>clearTimeout(id));
+  playbackTimeouts=[];
+}
+
+function startPlayback(){
+  clearPlaybackTimeouts();
+  document.getElementById('playhead')?.remove();
+  const ph=document.createElement('div');
+  Object.assign(ph.style,{position:'absolute',top:0,width:'2px',height:'100%',background:'red',zIndex:100,left:'0px'});
+  ph.id='playhead';
+  document.getElementById('trackArea').appendChild(ph);
+
+  let maxEnd=0;
+  document.querySelectorAll('.track').forEach(tr=>{
+    const au=tr.querySelector('audio');
+    if(!au||!au.src)return;
+    const leftBeats=parseInt(tr.style.left||0)/beatWidth;
+    const durBeats=parseFloat(tr.style.width)/beatWidth;
+    const slider=document.querySelector(`.trackSidebar[data-row="${tr.dataset.row}"] input[type='range']`);
+    if(slider) au.volume=parseFloat(slider.value);
+    au.currentTime=0;
+    au.playbackRate=playbackRate;
+    const playId=setTimeout(()=>{
+      au.play().catch(()=>{});
+      const stopId=setTimeout(()=>au.pause(),(durBeats/playbackRate)*1000);
+      playbackTimeouts.push(stopId);
+    },(leftBeats/playbackRate)*1000);
+    playbackTimeouts.push(playId);
+    maxEnd=Math.max(maxEnd,leftBeats+durBeats);
+  });
+  ph.style.transition='none';void ph.offsetWidth;
+  ph.style.transition=`left ${(maxEnd/playbackRate)}s linear`;
+  ph.style.left=(maxEnd*beatWidth)+'px';
+}
+
+// ----- Play Buttons -----
+playBtn.onclick=startPlayback;
+
+pauseBtn.onclick=()=>{
+  // Pause audios
+  document.querySelectorAll('.track audio').forEach(au=>{ if(!au.paused){au.pause();} });
+  // Stop scheduled events
+  clearPlaybackTimeouts();
+  // Freeze playhead
+  const ph=document.getElementById('playhead');
+  if(ph){
+    const left=parseFloat(window.getComputedStyle(ph).left);
+    ph.style.transition='none';
+    ph.style.left=left+'px';
+  }
+};
+
+
+
+let pausedAt = null;
+
+function getTrackLabel(track){
+  for(const n of track.childNodes){
+    if(n.nodeType===3){
+      const txt=n.textContent.trim();
+      if(txt) return txt;
+    }
+  }
+  return track.dataset.label||'Track';
+}
+
+async function saveProject(){
+  const tracksData=[];
+  const tracks=document.querySelectorAll('.track');
+  for(const tr of tracks){
+    const au=tr.querySelector('audio');
+    if(!au||!au.src) continue;
+    const obj={
+      label:getTrackLabel(tr),
+      top:parseInt(tr.style.top)||tr.offsetTop,
+      left:parseInt(tr.style.left)||tr.offsetLeft,
+      width:parseInt(tr.style.width)||tr.offsetWidth,
+      color:tr.style.backgroundColor,
+      volume:au.volume
+    };
+    try{
+      const blob=await fetch(au.src).then(r=>r.blob());
+      obj.data=await new Promise(res=>{const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(blob);});
+    }catch(e){console.error(e);}
+    tracksData.push(obj);
+  }
+  const project={version:8,meter,bpm,tracks:tracksData};
+  const blob=new Blob([JSON.stringify(project)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='soundroom_'+Date.now()+'.soundroomproj';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function clearProject(){
+  document.getElementById('tracksContainer').innerHTML='';
+  document.getElementById('trackSidebar').innerHTML='';
+}
+
+function loadProject(data){
+  clearProject();
+  meter=data.meter||4; bpm=data.bpm||60;
+  meterSel.value=meter.toString(); createTimeline();
+  tempoSlider.value=bpm.toString(); bpmDisplay.textContent=bpm.toString();
+  playbackRate=bpm/60;
+  if(!Array.isArray(data.tracks)) return;
+  const uniqueTops=[...new Set(data.tracks.map(t=>t.top))].sort((a,b)=>a-b);
+  const topToRow=new Map(uniqueTops.map((top,idx)=>[top,idx]));
+  data.tracks.forEach(t=>{
+  // 最後に読み込んだトラックの下の行に次の録音を配置するために trackIndex を更新
+  const tops = data.tracks.map(t => t.top);
+  if (tops.length > 0) {
+    trackIndex = Math.floor(Math.max(...tops) / trackSpacing + 1);
+  } else {
+    trackIndex = 0;
+  }
+
+    const tr=document.createElement('div');
+    tr.className='track';
+    Object.assign(tr.style,{
+      left:t.left+'px',
+      top:t.top+'px',
+      width:t.width+'px',
+      backgroundColor:t.color||trackColors[topToRow.get(t.top)%trackColors.length]
+    });
+    tr.textContent=t.label||`Track ${topToRow.get(t.top)+1}`;
+    const au=document.createElement('audio');
+    au.src=t.data; au.volume=t.volume!==undefined?t.volume:1;
+    tr.appendChild(au);
+    document.getElementById('tracksContainer').appendChild(tr);
+    if(!document.querySelector(`.trackSidebar[data-row="${topToRow.get(t.top)}"]`)){
+      addSidebarRow(topToRow.get(t.top),au);
+      document.querySelectorAll('.trackSidebar').forEach(el=>{
+        if(!el.dataset.row) el.dataset.row=topToRow.get(t.top);
+      });
+    }
+    enhanceTrack(tr,au);
+  });
+}
+
+/* ---------- Event bindings ---------- */
+saveBtn.addEventListener('click',saveProject);
+
+openBtn.addEventListener('click',async ()=>{
+  // Prefer File System Access API if available
+  if(window.showOpenFilePicker){
+    try{
+      const [fileHandle] = await window.showOpenFilePicker({
+        types:[{description:'SoundRoom Project',accept:{'application/json':['.soundroomproj','.json']}}],
+        excludeAcceptAllOption:false,
+        multiple:false
+      });
+      const file=await fileHandle.getFile();
+      const text=await file.text();
+      const data=JSON.parse(text);
+      loadProject(data);
+      return;
+    }catch(err){
+      // User canceled or API not allowed; fall back
+    }
+  }
+  // Fallback: temporary input element
+  const inp=document.createElement('input');
+  inp.type='file';
+  inp.accept='.soundroomproj,.json';
+  inp.style.display='none';
+  document.body.appendChild(inp);
+  inp.addEventListener('change',e=>{
+    const file=e.target.files[0];
+    if(!file){ document.body.removeChild(inp); return; }
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const data=JSON.parse(ev.target.result);
+        loadProject(data);
+      }catch(err){
+        alert('プロジェクトファイルの読み込みに失敗しました。');
+      }
+      document.body.removeChild(inp);
+    };
+    reader.readAsText(file);
+  });
+  inp.click();
+});
+
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- Context menu with global delegation -->
+<style>
+.track button{
+  position:absolute !important;
+  width:0 !important;
+  height:0 !important;
+  padding:0 !important;
+  margin:0 !important;
+  border:none !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+#trackContextMenu button{margin:2px 6px;}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const menu = document.createElement('div');
+  menu.id = 'trackContextMenu';
+  menu.style.cssText = 'position:fixed;display:none;background:#fff;border:1px solid #666;padding:4px;border-radius:4px;z-index:10000;';
+  menu.innerHTML = '<button id="cmDup">複製</button><button id="cmDel">削除</button>';
+  document.body.appendChild(menu);
+
+  let currentTrack = null;
+  function showMenu(track, x, y){
+    currentTrack = track;
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+    menu.style.display = 'block';
+  }
+  function hideMenu(){
+    menu.style.display = 'none';
+    currentTrack = null;
+  }
+
+  document.addEventListener('click', e => {
+    if(!menu.contains(e.target)) hideMenu();
+  });
+
+  document.getElementById('cmDup').addEventListener('click', () => {
+    if(currentTrack && currentTrack._dupBtn) currentTrack._dupBtn.click();
+    hideMenu();
+  });
+  document.getElementById('cmDel').addEventListener('click', () => {
+    if(currentTrack && currentTrack._delBtn) currentTrack._delBtn.click();
+    hideMenu();
+  });
+
+  function patchTrack(track){
+    if(track.dataset.cmPatched) return;
+
+    if(track.dataset.cmPatched) return;
+    track.dataset.cmPatched = '1';
+
+    const buttons = Array.from(track.querySelectorAll('button'));
+    buttons.forEach(btn => {
+      const txt = btn.textContent.trim();
+      if(txt === '＋' || txt === '複製' || txt === 'Copy' || txt === 'Duplicate') track._dupBtn = btn;
+      if(txt === '×' || txt === '削除' || txt === 'Del' || txt === 'Delete') track._delBtn = btn;
+    });
+  }
+
+  function patchAll(){
+    document.querySelectorAll('.track').forEach(patchTrack);
+  }
+  patchAll();
+
+  // Observe DOM changes
+  const observer = new MutationObserver(muts => {
+    muts.forEach(m => {
+      m.addedNodes.forEach(node => {
+        if(node.nodeType === 1){
+          if(node.classList.contains('track')) patchTrack(node);
+          else node.querySelectorAll && node.querySelectorAll('.track').forEach(patchTrack);
+        }
+      });
+    });
+  });
+  window.patchTrack = patchTrack;
+  observer.observe(document.body, {childList:true, subtree:true});
+
+  // Global contextmenu delegation
+  document.body.addEventListener('contextmenu', e => {
+    const track = e.target.closest('.track');
+    if(track){
+      e.preventDefault();
+      showMenu(track, e.clientX, e.clientY);
+    }
+  }, false);
+
+  // Global long‑press delegation
+  let lpTimer = null;
+  document.body.addEventListener('touchstart', e => {
+    const track = e.target.closest('.track');
+    if(!track) return;
+    lpTimer = setTimeout(() => {
+      showMenu(track, e.touches[0].clientX, e.touches[0].clientY);
+    }, 600);
+  });
+  const clearLP = () => clearTimeout(lpTimer);
+  document.body.addEventListener('touchend', clearLP);
+  document.body.addEventListener('touchmove', clearLP);
+
+  // Keyboard shortcuts (need selected track)
+  let selectedTrack = null;
+  document.body.addEventListener('click', e => {
+    const track = e.target.closest('.track');
+    if(track){
+      if(selectedTrack) selectedTrack.classList.remove('selected');
+      selectedTrack = track;
+      track.classList.add('selected');
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if(!selectedTrack) return;
+    if(e.key === 'Delete'){ e.preventDefault(); selectedTrack._delBtn?.click(); }
+    if((e.key === 'd' || e.key === 'D') && e.ctrlKey){ e.preventDefault(); selectedTrack._dupBtn?.click(); }
+  });
+});
+</script>
+
+</body>
+</html>
