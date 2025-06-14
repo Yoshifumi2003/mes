@@ -1,0 +1,201 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>♪オトノマップ</title>
+<style>
+:root{--brown:#8B4513;}
+*{box-sizing:border-box;font-family:sans-serif;}
+html,body{margin:0;padding:0;height:100%;}
+header{display:flex;justify-content:space-between;align-items:center;padding:0 10px;height:60px;background:var(--brown);color:#fff;}
+header .left{font-weight:bold;font-size:18px;}
+header .right{display:flex;flex-direction:column;align-items:flex-end;font-size:14px;line-height:1.2;}
+#toolbar{display:flex;gap:8px;padding:6px 10px;background:#f8f8f8;border-bottom:1px solid #ccc;}
+#toolbar button{border:1px solid var(--brown);background:transparent;color:var(--brown);padding:6px 12px;font-size:14px;border-radius:4px;cursor:pointer;}
+#mapContainer{position:relative;width:100%;height:calc(100% - 60px - 44px);overflow:hidden;background:#eee;}
+.pin{position:absolute;display:flex;align-items:center;cursor:move;user-select:none;}
+.pin .marker{font-size:24px;margin-right:4px;}
+.pin .controls{display:flex;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 4px;}
+.pin .controls button{background:var(--brown);color:#fff;border:none;border-radius:2px;padding:2px 6px;font-size:12px;cursor:pointer;}
+</style>
+</head>
+<body>
+<header><span class="left">♪オトノマップ</span><span class="right">MORITA Education System×道北音楽教育研究所<br>©2025 Morita Yoshifumi</span></header>
+
+<div id="toolbar">
+  <button id="btnMap">地図の挿入</button>
+  <button id="btnAddSound">音の追加</button>
+  <button id="btnSave">保存</button>
+  <button id="btnLoad">読み込み</button>
+
+  <input type="file" id="mapInput" accept="image/*" style="display:none;">
+  <input type="file" id="audioInput" accept="audio/*" style="display:none;">
+  <input type="file" id="loadInput" accept=".json" style="display:none;">
+</div>
+
+<div id="mapContainer"></div>
+
+<script>
+const mapContainer=document.getElementById('mapContainer');
+let bgImageData=null;
+let pendingAudio=null; // {data, fileName}
+let pins=[];
+
+// ===== Map insertion =====
+document.getElementById('btnMap').addEventListener('click',()=>document.getElementById('mapInput').click());
+document.getElementById('mapInput').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    bgImageData=ev.target.result;
+    mapContainer.style.backgroundImage=`url(${bgImageData})`;
+    mapContainer.style.backgroundSize='contain';
+    mapContainer.style.backgroundPosition='center';
+    mapContainer.style.backgroundRepeat='no-repeat';
+  };
+  reader.readAsDataURL(f);
+});
+
+// ===== Add Sound =====
+document.getElementById('btnAddSound').addEventListener('click',()=>document.getElementById('audioInput').click());
+document.getElementById('audioInput').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    pendingAudio={data:ev.target.result,fileName:f.name};
+    mapContainer.style.cursor='crosshair';
+  };
+  reader.readAsDataURL(f);
+});
+
+mapContainer.addEventListener('click',e=>{
+  if(!pendingAudio)return;
+  const rect=mapContainer.getBoundingClientRect();
+  const x=e.clientX-rect.left;
+  const y=e.clientY-rect.top;
+  addPin(x,y,pendingAudio.data,pendingAudio.fileName);
+  pendingAudio=null;
+  mapContainer.style.cursor='default';
+});
+
+// ===== Pin creation =====
+function addPin(x,y,audioData,fileName){
+  const pin=document.createElement('div');
+  pin.className='pin';
+  pin.style.left=(x-12)+'px';
+  pin.style.top=(y-24)+'px';
+
+  const marker=document.createElement('span');
+  marker.className='marker';
+  marker.textContent='📍';
+  pin.appendChild(marker);
+
+  const controls=document.createElement('div');
+  controls.className='controls';
+  pin.appendChild(controls);
+
+  const audio=new Audio(audioData);
+
+  const createBtn=(label,handler)=>{
+    const b=document.createElement('button');
+    b.textContent=label;
+    b.addEventListener('click',handler);
+    controls.appendChild(b);
+  };
+
+  createBtn('▶',()=>audio.play());
+  createBtn('■',()=>{audio.pause();audio.currentTime=0;});
+  createBtn('⤓',()=>{
+    const a=document.createElement('a');
+    a.href=audioData;
+    a.download=fileName;
+    a.click();
+  });
+  createBtn('✖',()=>{
+    mapContainer.removeChild(pin);
+    pins=pins.filter(p=>p.element!==pin);
+  });
+
+  // drag support
+  const startDrag=ev=>{
+    ev.preventDefault();
+    const startX=('touches'in ev)?ev.touches[0].clientX:ev.clientX;
+    const startY=('touches'in ev)?ev.touches[0].clientY:ev.clientY;
+    const pinRect=pin.getBoundingClientRect();
+    const offsetX=startX-pinRect.left;
+    const offsetY=startY-pinRect.top;
+    const move=e2=>{
+      const clientX=('touches'in e2)?e2.touches[0].clientX:e2.clientX;
+      const clientY=('touches'in e2)?e2.touches[0].clientY:e2.clientY;
+      const contRect=mapContainer.getBoundingClientRect();
+      pin.style.left=(clientX-contRect.left-offsetX)+'px';
+      pin.style.top=(clientY-contRect.top-offsetY)+'px';
+    };
+    const end=()=>{document.removeEventListener('mousemove',move);
+                   document.removeEventListener('mouseup',end);
+                   document.removeEventListener('touchmove',move);
+                   document.removeEventListener('touchend',end);};
+    document.addEventListener('mousemove',move);
+    document.addEventListener('mouseup',end);
+    document.addEventListener('touchmove',move);
+    document.addEventListener('touchend',end);
+  };
+  pin.addEventListener('mousedown',startDrag);
+  pin.addEventListener('touchstart',startDrag);
+
+  mapContainer.appendChild(pin);
+  pins.push({element:pin,x:x-12,y:y-24,audio:audioData,fileName:fileName});
+}
+
+// ===== Save =====
+document.getElementById('btnSave').addEventListener('click',()=>{
+  // refresh positions
+  pins.forEach(p=>{
+    const r=p.element.getBoundingClientRect();
+    const c=mapContainer.getBoundingClientRect();
+    p.x=r.left-c.left;
+    p.y=r.top-c.top;
+  });
+  const saveData={bg:bgImageData,pins:pins.map(p=>({x:p.x,y:p.y,audio:p.audio,fileName:p.fileName}))};
+  const blob=new Blob([JSON.stringify(saveData)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='soundmap.json';
+  a.click();
+});
+
+// ===== Load =====
+document.getElementById('btnLoad').addEventListener('click',()=>document.getElementById('loadInput').click());
+document.getElementById('loadInput').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      loadData(data);
+    }catch(err){alert('読み込みに失敗しました');}
+  };
+  reader.readAsText(f);
+});
+
+function loadData(data){
+  // clear current pins
+  pins.forEach(p=>mapContainer.removeChild(p.element));
+  pins=[];
+  // background
+  bgImageData=data.bg||null;
+  if(bgImageData){
+    mapContainer.style.backgroundImage=`url(${bgImageData})`;
+    mapContainer.style.backgroundSize='contain';
+    mapContainer.style.backgroundPosition='center';
+    mapContainer.style.backgroundRepeat='no-repeat';
+  }else{
+    mapContainer.style.backgroundImage='none';
+  }
+  // pins
+  (data.pins||[]).forEach(pd=>addPin(pd.x+12,pd.y+24,pd.audio,pd.fileName));
+}
+</script>
+</body>
+</html>
