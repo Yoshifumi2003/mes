@@ -56,6 +56,20 @@
         section{margin:80px auto;}
         footer{margin:80px 0 40px 0;}
     }
+
+    /* apps flex container */
+    .apps-flex{
+        width:90%;
+        max-width:920px;
+        margin:120px auto;
+        display:flex;
+        justify-content:center;
+        gap:60px;
+        flex-wrap:wrap;
+    }
+    .app-card{
+        text-align:center;
+    }
 </style>
 </head>
 <body>
@@ -73,16 +87,20 @@
 <p>今後も、教育の現場と共に歩みながら、継続的に改善を重ねてまいります。</p>
 </section>
 
-<!-- Download -->
-<section>
-    <a href="sound_room.html" class="download-btn" download>Sound Room</a>
-</section>
 
-<!-- Usage guide -->
-<section>
-    <a href="sound_room_guide_single.html" class="link-btn">使用方法はこちら</a>
+<!-- Applications (Sound Room & Sound Map) -->
+<section class="apps-flex">
+    <div class="app-card">
+        <a href="sound_room.html" class="download-btn" download>Sound Room</a>
+        <br>
+        <a href="sound_room_guide_single.html" class="link-btn">使用方法はこちら</a>
+    </div>
+    <div class="app-card">
+        <a href="sound_map.html" class="download-btn" download>Sound Map</a>
+        <br>
+        <a href="sound_map_guide_v3.html" class="link-btn">使用方法はこちら</a>
+    </div>
 </section>
-
 <!-- Disclaimer -->
 <section class="disclaimer">
     <h2>【免責事項】</h2>
