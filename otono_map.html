@@ -7,21 +7,24 @@
 <style>
 :root{--brown:#8B4513;}
 *{box-sizing:border-box;font-family:sans-serif;}
-html,body{margin:0;padding:0;height:100%;}
+html,body{margin:0;padding:0;height:100%;touch-action:none;}
 header{display:flex;justify-content:space-between;align-items:center;padding:0 10px;height:60px;background:var(--brown);color:#fff;}
 header .left{font-weight:bold;font-size:18px;}
 header .right{display:flex;flex-direction:column;align-items:flex-end;font-size:14px;line-height:1.2;}
 #toolbar{display:flex;gap:8px;padding:6px 10px;background:#f8f8f8;border-bottom:1px solid #ccc;}
 #toolbar button{border:1px solid var(--brown);background:transparent;color:var(--brown);padding:6px 12px;font-size:14px;border-radius:4px;cursor:pointer;}
-#mapContainer{position:relative;width:100%;height:calc(100% - 60px - 44px);overflow:hidden;background:#eee;}
-.pin{position:absolute;display:flex;align-items:center;cursor:move;user-select:none;}
-.pin .marker{font-size:24px;margin-right:4px;}
-.pin .controls{display:flex;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:2px 4px;}
-.pin .controls button{background:var(--brown);color:#fff;border:none;border-radius:2px;padding:2px 6px;font-size:12px;cursor:pointer;}
+#mapContainer{position:relative;width:100%;height:calc(100% - 60px - 44px);overflow:hidden;background:#eee;touch-action:none;}
+#mapInner{position:absolute;top:0;left:0;width:100%;height:100%;transform-origin:0 0;}
+.pin{position:absolute;display:flex;flex-direction:column;align-items:center;cursor:move;user-select:none;transform-origin:top left;}
+.pin .marker{font-size:24px;margin-bottom:2px;}
+.pin .controls{display:flex;flex-direction:column;align-items:center;gap:4px;background:#fff;border:1px solid #ccc;border-radius:4px;padding:4px;}
+.pin .controls input{width:80px;min-width:60px;text-align:center;border:1px solid #ccc;border-radius:2px;padding:2px;font-size:11px;}
+.pin .btnRow{display:flex;gap:4px;}
+.pin .btnRow button{background:var(--brown);color:#fff;border:none;border-radius:2px;padding:2px 6px;font-size:12px;cursor:pointer;}
 </style>
 </head>
 <body>
-<header><span class="left">♪オトノマップ</span><span class="right">MORITA Education System×道北音楽教育研究所<br>©2025 Morita Yoshifumi</span></header>
+<header><span class="left">♪オトノマップ</span><span class="right">MORITA Education System×道北音楽教育研究所<br>©2025 Yoshifumi Morita</span></header>
 
 <div id="toolbar">
   <button id="btnMap">地図の挿入</button>
@@ -34,33 +37,50 @@ header .right{display:flex;flex-direction:column;align-items:flex-end;font-size:
   <input type="file" id="loadInput" accept=".json" style="display:none;">
 </div>
 
-<div id="mapContainer"></div>
+<div id="mapContainer">
+  <div id="mapInner"></div>
+</div>
 
 <script>
 const mapContainer=document.getElementById('mapContainer');
+const mapInner=document.getElementById('mapInner');
 let bgImageData=null;
-let pendingAudio=null; // {data, fileName}
+let pendingAudio=null;
 let pins=[];
+let scale=1,minScale=0.5,maxScale=4;
+let translateX=0,translateY=0;
 
-// ===== Map insertion =====
+// panning
+let isPanning=false,panStartX=0,panStartY=0,panStartTX=0,panStartTY=0;
+
+function applyTransform(){
+  mapInner.style.transform=`translate(${translateX}px,${translateY}px) scale(${scale})`;
+  updatePinSizes();
+}
+function updatePinSizes(){
+  const invScale=1/scale;
+  pins.forEach(p=>{p.element.style.transform=`scale(${invScale})`;});
+}
+
+// Map insertion
 document.getElementById('btnMap').addEventListener('click',()=>document.getElementById('mapInput').click());
 document.getElementById('mapInput').addEventListener('change',e=>{
-  const f=e.target.files[0]; if(!f)return;
+  const f=e.target.files[0];if(!f)return;
   const reader=new FileReader();
   reader.onload=ev=>{
     bgImageData=ev.target.result;
-    mapContainer.style.backgroundImage=`url(${bgImageData})`;
-    mapContainer.style.backgroundSize='contain';
-    mapContainer.style.backgroundPosition='center';
-    mapContainer.style.backgroundRepeat='no-repeat';
+    mapInner.style.backgroundImage=`url(${bgImageData})`;
+    mapInner.style.backgroundSize='contain';
+    mapInner.style.backgroundPosition='center';
+    mapInner.style.backgroundRepeat='no-repeat';
   };
   reader.readAsDataURL(f);
 });
 
-// ===== Add Sound =====
+// Add Sound
 document.getElementById('btnAddSound').addEventListener('click',()=>document.getElementById('audioInput').click());
 document.getElementById('audioInput').addEventListener('change',e=>{
-  const f=e.target.files[0]; if(!f)return;
+  const f=e.target.files[0];if(!f)return;
   const reader=new FileReader();
   reader.onload=ev=>{
     pendingAudio={data:ev.target.result,fileName:f.name};
@@ -70,132 +90,175 @@ document.getElementById('audioInput').addEventListener('change',e=>{
 });
 
 mapContainer.addEventListener('click',e=>{
+  if(isPanning){return;} // ignore click right after pan
   if(!pendingAudio)return;
   const rect=mapContainer.getBoundingClientRect();
-  const x=e.clientX-rect.left;
-  const y=e.clientY-rect.top;
-  addPin(x,y,pendingAudio.data,pendingAudio.fileName);
+  const mapX=(e.clientX-rect.left-translateX)/scale-12;
+  const mapY=(e.clientY-rect.top-translateY)/scale-24;
+  addPin(mapX,mapY,pendingAudio.data,pendingAudio.fileName);
   pendingAudio=null;
   mapContainer.style.cursor='default';
 });
 
-// ===== Pin creation =====
-function addPin(x,y,audioData,fileName){
+// Panning handlers
+mapContainer.addEventListener('mousedown',e=>{
+  if(e.button!==0) return;
+  if(e.target.closest('.pin')) return;
+  isPanning=true;
+  panStartX=e.clientX; panStartY=e.clientY;
+  panStartTX=translateX; panStartTY=translateY;
+  mapContainer.style.cursor='grabbing';
+});
+document.addEventListener('mousemove',e=>{
+  if(!isPanning) return;
+  const dx=e.clientX-panStartX;
+  const dy=e.clientY-panStartY;
+  translateX=panStartTX+dx;
+  translateY=panStartTY+dy;
+  applyTransform();
+});
+document.addEventListener('mouseup',()=>{ if(isPanning){isPanning=false; mapContainer.style.cursor='default';}});
+
+// Touch panning
+mapContainer.addEventListener('touchstart',e=>{
+  if(e.touches.length===1 && !e.target.closest('.pin')){
+    isPanning=true;
+    const t=e.touches[0];
+    panStartX=t.clientX; panStartY=t.clientY;
+    panStartTX=translateX; panStartTY=translateY;
+  }
+},{passive:false});
+mapContainer.addEventListener('touchmove',e=>{
+  if(isPanning && e.touches.length===1){
+    e.preventDefault();
+    const t=e.touches[0];
+    const dx=t.clientX-panStartX;
+    const dy=t.clientY-panStartY;
+    translateX=panStartTX+dx;
+    translateY=panStartTY+dy;
+    applyTransform();
+  }
+},{passive:false});
+mapContainer.addEventListener('touchend',e=>{
+  if(e.touches.length===0){isPanning=false;mapContainer.style.cursor='default';}
+});
+
+// Pin creation
+function addPin(x,y,audioData,fileName,label){
   const pin=document.createElement('div');
   pin.className='pin';
-  pin.style.left=(x-12)+'px';
-  pin.style.top=(y-24)+'px';
-
-  const marker=document.createElement('span');
-  marker.className='marker';
-  marker.textContent='📍';
-  pin.appendChild(marker);
-
-  const controls=document.createElement('div');
-  controls.className='controls';
-  pin.appendChild(controls);
-
+  pin.style.left=x+'px';
+  pin.style.top=y+'px';
+  pin.style.transform=`scale(${1/scale})`;
+  const marker=document.createElement('span');marker.className='marker';marker.textContent='📍';pin.appendChild(marker);
+  const controls=document.createElement('div');controls.className='controls';pin.appendChild(controls);
+  const nameInput=document.createElement('input');nameInput.type='text';nameInput.value=label||fileName.replace(/\.[^.]+$/,'');nameInput.placeholder='名前';controls.appendChild(nameInput);
+  const btnRow=document.createElement('div');btnRow.className='btnRow';controls.appendChild(btnRow);
   const audio=new Audio(audioData);
-
-  const createBtn=(label,handler)=>{
-    const b=document.createElement('button');
-    b.textContent=label;
-    b.addEventListener('click',handler);
-    controls.appendChild(b);
-  };
-
+  const createBtn=(l,h)=>{const b=document.createElement('button');b.textContent=l;b.addEventListener('click',h);btnRow.appendChild(b);};
   createBtn('▶',()=>audio.play());
   createBtn('■',()=>{audio.pause();audio.currentTime=0;});
-  createBtn('⤓',()=>{
-    const a=document.createElement('a');
-    a.href=audioData;
-    a.download=fileName;
-    a.click();
-  });
-  createBtn('✖',()=>{
-    mapContainer.removeChild(pin);
-    pins=pins.filter(p=>p.element!==pin);
-  });
-
-  // drag support
+  createBtn('⤓',()=>{const a=document.createElement('a');a.href=audioData;a.download=fileName;a.click();});
+  createBtn('✖',()=>{mapInner.removeChild(pin);pins=pins.filter(p=>p.element!==pin);});
+  // drag pin
   const startDrag=ev=>{
+    if(ev.target.tagName==='INPUT'||ev.target.tagName==='BUTTON')return;
     ev.preventDefault();
     const startX=('touches'in ev)?ev.touches[0].clientX:ev.clientX;
     const startY=('touches'in ev)?ev.touches[0].clientY:ev.clientY;
-    const pinRect=pin.getBoundingClientRect();
-    const offsetX=startX-pinRect.left;
-    const offsetY=startY-pinRect.top;
+    const origLeft=parseFloat(pin.style.left);
+    const origTop=parseFloat(pin.style.top);
     const move=e2=>{
       const clientX=('touches'in e2)?e2.touches[0].clientX:e2.clientX;
       const clientY=('touches'in e2)?e2.touches[0].clientY:e2.clientY;
-      const contRect=mapContainer.getBoundingClientRect();
-      pin.style.left=(clientX-contRect.left-offsetX)+'px';
-      pin.style.top=(clientY-contRect.top-offsetY)+'px';
+      const dx=(clientX-startX)/scale;
+      const dy=(clientY-startY)/scale;
+      pin.style.left=(origLeft+dx)+'px';
+      pin.style.top=(origTop+dy)+'px';
     };
-    const end=()=>{document.removeEventListener('mousemove',move);
-                   document.removeEventListener('mouseup',end);
-                   document.removeEventListener('touchmove',move);
-                   document.removeEventListener('touchend',end);};
-    document.addEventListener('mousemove',move);
-    document.addEventListener('mouseup',end);
-    document.addEventListener('touchmove',move);
-    document.addEventListener('touchend',end);
+    const end=()=>{document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',end);
+      document.removeEventListener('touchmove',move);document.removeEventListener('touchend',end);};
+    document.addEventListener('mousemove',move);document.addEventListener('mouseup',end);
+    document.addEventListener('touchmove',move,{passive:false});document.addEventListener('touchend',end);
   };
   pin.addEventListener('mousedown',startDrag);
-  pin.addEventListener('touchstart',startDrag);
-
-  mapContainer.appendChild(pin);
-  pins.push({element:pin,x:x-12,y:y-24,audio:audioData,fileName:fileName});
+  pin.addEventListener('touchstart',startDrag,{passive:false});
+  mapInner.appendChild(pin);
+  pins.push({element:pin,audio:audioData,fileName:fileName,label:()=>nameInput.value});
 }
 
-// ===== Save =====
+// Save
 document.getElementById('btnSave').addEventListener('click',()=>{
-  // refresh positions
-  pins.forEach(p=>{
-    const r=p.element.getBoundingClientRect();
-    const c=mapContainer.getBoundingClientRect();
-    p.x=r.left-c.left;
-    p.y=r.top-c.top;
-  });
-  const saveData={bg:bgImageData,pins:pins.map(p=>({x:p.x,y:p.y,audio:p.audio,fileName:p.fileName}))};
+  const savePins=pins.map(p=>({x:parseFloat(p.element.style.left),y:parseFloat(p.element.style.top),
+    audio:p.audio,fileName:p.fileName,label:p.label()}));
+  const saveData={bg:bgImageData,pins:savePins};
   const blob=new Blob([JSON.stringify(saveData)],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='soundmap.json';
-  a.click();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='soundmap.json';a.click();
 });
 
-// ===== Load =====
+// Load
 document.getElementById('btnLoad').addEventListener('click',()=>document.getElementById('loadInput').click());
 document.getElementById('loadInput').addEventListener('change',e=>{
-  const f=e.target.files[0]; if(!f)return;
+  const f=e.target.files[0];if(!f)return;
   const reader=new FileReader();
-  reader.onload=ev=>{
-    try{
-      const data=JSON.parse(ev.target.result);
-      loadData(data);
-    }catch(err){alert('読み込みに失敗しました');}
-  };
+  reader.onload=ev=>{try{loadData(JSON.parse(ev.target.result));}catch(err){alert('読み込みに失敗しました');}};
   reader.readAsText(f);
 });
-
 function loadData(data){
-  // clear current pins
-  pins.forEach(p=>mapContainer.removeChild(p.element));
-  pins=[];
-  // background
+  pins.forEach(p=>mapInner.removeChild(p.element));pins=[];
   bgImageData=data.bg||null;
-  if(bgImageData){
-    mapContainer.style.backgroundImage=`url(${bgImageData})`;
-    mapContainer.style.backgroundSize='contain';
-    mapContainer.style.backgroundPosition='center';
-    mapContainer.style.backgroundRepeat='no-repeat';
-  }else{
-    mapContainer.style.backgroundImage='none';
-  }
-  // pins
-  (data.pins||[]).forEach(pd=>addPin(pd.x+12,pd.y+24,pd.audio,pd.fileName));
+  if(bgImageData){mapInner.style.backgroundImage=`url(${bgImageData})`;mapInner.style.backgroundSize='contain';
+    mapInner.style.backgroundPosition='center';mapInner.style.backgroundRepeat='no-repeat';}
+  else{mapInner.style.backgroundImage='none';}
+  (data.pins||[]).forEach(pd=>addPin(pd.x,pd.y,pd.audio,pd.fileName,pd.label));applyTransform();
 }
+
+// Zoom wheel
+mapContainer.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const rect=mapContainer.getBoundingClientRect();
+  const offsetX=e.clientX-rect.left;
+  const offsetY=e.clientY-rect.top;
+  const zoomFactor=e.deltaY<0?1.1:0.9;
+  const newScale=Math.min(maxScale,Math.max(minScale,scale*zoomFactor));
+  const ratio=newScale/scale;
+  translateX=offsetX-(offsetX-translateX)*ratio;
+  translateY=offsetY-(offsetY-translateY)*ratio;
+  scale=newScale;
+  applyTransform();
+},{passive:false});
+
+// Pinch Zoom
+let pinchStartDist=null;
+let pinchStartScale=1;
+let pinchMid={x:0,y:0};
+mapContainer.addEventListener('touchstart',e=>{
+  if(e.touches.length===2){
+    pinchStartDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    pinchStartScale=scale;
+    const rect=mapContainer.getBoundingClientRect();
+    pinchMid.x=(e.touches[0].clientX+e.touches[1].clientX)/2-rect.left;
+    pinchMid.y=(e.touches[0].clientY+e.touches[1].clientY)/2-rect.top;
+  }
+},{passive:false});
+
+mapContainer.addEventListener('touchmove',e=>{
+  if(e.touches.length===2&&pinchStartDist){
+    e.preventDefault();
+    const newDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    let newScale=pinchStartScale*(newDist/pinchStartDist);
+    newScale=Math.min(maxScale,Math.max(minScale,newScale));
+    const ratio=newScale/scale;
+    translateX=pinchMid.x-(pinchMid.x-translateX)*ratio;
+    translateY=pinchMid.y-(pinchMid.y-translateY)*ratio;
+    scale=newScale;
+    applyTransform();
+  }
+},{passive:false});
+
+mapContainer.addEventListener('touchend',e=>{
+  if(e.touches.length<2){pinchStartDist=null;}
+});
 </script>
 </body>
 </html>
