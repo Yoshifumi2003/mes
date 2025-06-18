@@ -127,26 +127,17 @@ function addSidebarRow(index,audio){
   label.contentEditable = "true";
   label.style.minWidth = "60px";
   label.style.outline = "none";
-  label.addEventListener('input', () => {
-    document.querySelectorAll(`.track[data-row="${index}"]`).forEach(tr=>{
-      // Update track text
-      for(const node of tr.childNodes){
-        if(node.nodeType===3){
-          node.textContent = label.textContent;
-          return;
-        }
-      }
-      tr.insertBefore(document.createTextNode(label.textContent), tr.firstChild);
-    });
-  });
   row.appendChild(label);
 
   const slider=document.createElement('input');
-  slider.type='range';slider.min=0;slider.max=1;slider.step=0.01;slider.value=1;
+  slider.type='range';
+  slider.min=0; slider.max=1; slider.step=0.01; slider.value=1;
   slider.oninput=()=>{document.querySelectorAll(`.track[data-row="${index}"] audio`).forEach(el=>el.volume=parseFloat(slider.value));};
   row.appendChild(slider);
+
   sidebar.appendChild(row);
 }
+
 // ----- Track Enhancements -----
 function enhanceTrack(track,audio){
   const rh=document.createElement('div');
@@ -177,7 +168,11 @@ function enhanceTrack(track,audio){
       if (newWidth >= beatWidth) {
         track.style.width = newWidth + 'px';
         track.style.left = newLeft + 'px';
-        startLX = e.clientX;
+        const secPerBeat = 60 / bpm;
+      const deltaTrim = dx / beatWidth * secPerBeat;
+      const currentTrim = parseFloat(track.dataset.trimStartSec || 0);
+      track.dataset.trimStartSec = Math.max(0, currentTrim + deltaTrim);
+      startLX = e.clientX;
       }
     }
   });
@@ -189,28 +184,22 @@ function enhanceTrack(track,audio){
   del.textContent='×';
   del.style.cssText='position:absolute;right:10px;top:5px;';
   
-  del.onclick=()=>{
-    const top = parseInt(track.style.top);
-    track.remove();
+  del.onclick = () => {
+  const removedTop = parseInt(track.style.top);
+  track.remove();
 
-    // 同じtopにあるトラックが他にないか確認
-    const tracksSameRow = Array.from(document.querySelectorAll('.track')).filter(t => parseInt(t.style.top) === top);
-    if (tracksSameRow.length === 0) {
-      // 対応するSidebarも削除
-      document.querySelectorAll('.trackSidebar').forEach(sb=>{
-        if (parseInt(sb.style.top) === top) sb.remove();
-      });
-    }
+  // 同じ行にまだトラックが残っているか確認
+  const tracksSameRow = Array.from(document.querySelectorAll('.track')).filter(t => parseInt(t.style.top) === removedTop);
+  if (tracksSameRow.length === 0) {
+    // 対応するサイドバーも削除
+    document.querySelectorAll('.trackSidebar').forEach(sb=>{
+      if (parseInt(sb.style.top) === removedTop) sb.remove();
+    });
+  }
 
-    // トラック削除後に trackIndex を見直す
-    const allTracks = Array.from(document.querySelectorAll('.track'));
-    if (allTracks.length > 0) {
-      const tops = allTracks.map(t => parseInt(t.style.top));
-      trackIndex = Math.floor(Math.max(...tops) / trackSpacing + 1);
-    } else {
-      trackIndex = 0;
-    }
-  };
+  // 行を再構成して詰める
+  compactTracks();
+};
 
   track.appendChild(del);
 
@@ -225,7 +214,8 @@ dup.onclick = () => {
   // Reset context‑menu patched flag on clone so patchTrack runs
   clone.removeAttribute('data-cm-patched');
 
-  clone.dataset.row = track.dataset.row; // 子要素も含めてコピー
+  clone.dataset.row = track.dataset.row;
+  clone.dataset.trimStartSec = track.dataset.trimStartSec || 0; // 子要素も含めてコピー
   const originalAudio = track.querySelector('audio');
   const newAudio = clone.querySelector('audio');
 
@@ -279,8 +269,9 @@ dup.onclick = () => {
 // ----- Recording -----
 recordBtn.onclick = () => {
   recordBtn.disabled = true;
-  stopBtn.disabled = false;
+  stopBtn.disabled = true;
   navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}}).then(stream=>{
+    stopBtn.disabled = false;
     mediaRecorder=new MediaRecorder(stream);
     chunks=[];
     mediaRecorder.ondataavailable=e=>chunks.push(e.data);
@@ -296,9 +287,9 @@ recordBtn.onclick = () => {
     const top=rowGap+trackIndex*trackSpacing;
     currentTrackEl=document.createElement('div');
     currentTrackEl.className='track';
+    currentTrackEl.dataset.trimStartSec = 0;
     currentTrackEl.dataset.row=trackIndex;
     Object.assign(currentTrackEl.style,{left:'0px',top:top+'px',width:'1px',backgroundColor:trackColors[trackIndex%trackColors.length]});
-    currentTrackEl.textContent=`Track ${trackIndex+1}`;
     currentAudioEl=document.createElement('audio');
     currentTrackEl.appendChild(currentAudioEl);
     document.getElementById('tracksContainer').appendChild(currentTrackEl);
@@ -313,7 +304,13 @@ recordBtn.onclick = () => {
     },1000);
 
     enhanceTrack(currentTrackEl,currentAudioEl);
-  }).catch(console.error);
+  }).catch(err=>{
+    console.error(err);
+    alert('マイクへのアクセスが許可されなかったため、録音を開始できませんでした。ブラウザのアドレスバー付近の設定からマイクを許可してください。');
+    // ボタン状態を元に戻す
+    recordBtn.disabled = false;
+    stopBtn.disabled = true;
+  });
 };
 
 stopBtn.onclick=()=>{
@@ -345,9 +342,9 @@ function addTrackFromFile(url,label){
   const top=rowGap+trackIndex*trackSpacing;
   const tr=document.createElement('div');
   tr.className='track';
+  tr.dataset.trimStartSec = 0;
   tr.dataset.row = trackIndex;
   Object.assign(tr.style,{left:'0px',top:top+'px',width:'100px',backgroundColor:trackColors[trackIndex%trackColors.length]});
-  tr.textContent=label;
   const au=document.createElement('audio');au.src=url;tr.appendChild(au);
   document.getElementById('tracksContainer').appendChild(tr);
   addSidebarRow(trackIndex,au);
@@ -379,7 +376,8 @@ function startPlayback(){
     const durBeats=parseFloat(tr.style.width)/beatWidth;
     const slider=document.querySelector(`.trackSidebar[data-row="${tr.dataset.row}"] input[type='range']`);
     if(slider) au.volume=parseFloat(slider.value);
-    au.currentTime=0;
+    const trimSec = parseFloat(tr.dataset.trimStartSec || 0);
+    au.currentTime = trimSec;
     au.playbackRate=playbackRate;
     const playId=setTimeout(()=>{
       au.play().catch(()=>{});
@@ -485,7 +483,6 @@ function loadProject(data){
       width:t.width+'px',
       backgroundColor:t.color||trackColors[topToRow.get(t.top)%trackColors.length]
     });
-    tr.textContent=t.label||`Track ${topToRow.get(t.top)+1}`;
     const au=document.createElement('audio');
     au.src=t.data; au.volume=t.volume!==undefined?t.volume:1;
     tr.appendChild(au);
@@ -683,6 +680,64 @@ document.addEventListener('DOMContentLoaded', () => {
     if((e.key === 'd' || e.key === 'D') && e.ctrlKey){ e.preventDefault(); selectedTrack._dupBtn?.click(); }
   });
 });
+
+
+/**
+ * 再配置：空行があれば上に詰め，行番号・色・イベントを再割当
+ */
+function compactTracks(){
+  const tracks = Array.from(document.querySelectorAll('.track'));
+  const sidebars = Array.from(document.querySelectorAll('.trackSidebar'));
+
+  if(tracks.length === 0){
+    trackIndex = 0;
+    return;
+  }
+
+  // 現在の行(top値)を小さい順に並べ替え
+  const uniqueTops = [...new Set(tracks.map(tr=>parseInt(tr.style.top)))].sort((a,b)=>a-b);
+
+  uniqueTops.forEach((oldTop, newRow)=>{
+    const newTop = rowGap + newRow * trackSpacing;
+    if(oldTop !== newTop){
+      // トラック側
+      tracks.filter(tr=>parseInt(tr.style.top)===oldTop).forEach(tr=>{
+        tr.style.top = newTop + 'px';
+        tr.dataset.row = newRow;
+        // 背景色更新
+        tr.style.backgroundColor = trackColors[newRow % trackColors.length];
+
+        // 先頭テキストノードが "Track n" の場合のみ更新
+        const firstNode = tr.firstChild;
+        if(firstNode && firstNode.nodeType === 3 && /^Track\s+\d+/.test(firstNode.textContent.trim())){
+          firstNode.textContent = `Track ${newRow+1}`;
+        }
+      });
+
+      // サイドバー側
+      sidebars.filter(sb=>parseInt(sb.style.top)===oldTop).forEach(sb=>{
+        sb.style.top = newTop + 'px';
+        sb.dataset.row = newRow;
+
+        const label = sb.querySelector('div');
+        if(label && /^Track\s+\d+/.test(label.textContent.trim())){
+          label.textContent = `Track ${newRow+1}`;
+        }
+
+        const slider = sb.querySelector('input[type="range"]');
+        if(slider){
+          slider.oninput = () => {
+            document.querySelectorAll(`.track[data-row="${newRow}"] audio`).forEach(a=>a.volume=parseFloat(slider.value));
+          };
+        }
+      });
+    }
+  });
+
+  // trackIndex を更新
+  trackIndex = uniqueTops.length;
+}
+
 </script>
 
 </body>
