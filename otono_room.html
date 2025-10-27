@@ -1,9 +1,8 @@
 <!DOCTYPE html>
-
 <html lang="ja">
 <head>
 <meta charset="utf-8"/>
-<title>オトノルーム (fix volume v15)</title>
+<title>♪オトノルーム</title>
 <style>
 :root{
   --track-height:40px;
@@ -14,7 +13,7 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:sans-serif;background:#fff;color:#000;}
 header{background:#000;color:#fff;padding:10px 20px;font-size:18px;}
-.developer{font-size:12px;color:#555;float:right;}
+.developer{font-size:12px;color:#bbb;float:right;line-height:1.2;}
 .controls{background:#e0e0e0;padding:10px 20px;white-space:nowrap;}
 .controls button{margin-right:10px;padding:8px 12px;}
 .controls select{margin-left:10px;padding:6px 8px;}
@@ -25,84 +24,89 @@ header{background:#000;color:#fff;padding:10px 20px;font-size:18px;}
 #trackArea{position:relative;flex:1;overflow-x:auto;overflow-y:hidden;background:#fff;}
 #timelineOverlay{pointer-events:none;position:absolute;top:0;left:0;height:100%;z-index:55;}
 #tracksContainer{position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;}
-.track{position:absolute;height:var(--track-height);line-height:var(--track-height);border-radius:4px;color:#fff;font-weight:bold;cursor:move;padding-left:10px;}
+.track{position:absolute;height:var(--track-height);line-height:var(--track-height);border-radius:4px;color:#fff;font-weight:bold;cursor:move;padding-left:10px;touch-action:none;}
 .track audio{display:none;}
-.resize-handle{position:absolute;right:0;top:0;width:10px;height:100%;background:rgba(0,0,0,0.3);cursor:ew-resize;}
+.resize-handle{position:absolute;top:0;width:12px;height:100%;background:rgba(0,0,0,0.35);cursor:ew-resize;touch-action:none;z-index:5;pointer-events:auto;}
+.resize-right{right:0;}
+.resize-left{left:0;}
 .trackSidebar{position:absolute;left:0;width:100%;height:var(--track-height);display:flex;align-items:center;gap:6px;padding:0 8px;font-size:14px;border-bottom:1px solid #ccc;background:transparent;}
 .trackSidebar input[type='range']{flex:1 1 auto;}
+/* Hide built-in tiny buttons used by context menu wires */
+.track button{position:absolute !important;width:0 !important;height:0 !important;padding:0 !important;margin:0 !important;border:none !important;opacity:0 !important;pointer-events:none !important;}
+#trackContextMenu button{margin:2px 6px;}
+ruby rt{font-size:.75em;color:#222;}
 </style>
 </head>
 <body>
-<header>♪オトノルーム <span class="developer">MORITA Education System×道北音楽教育研究所<br/><span style='font-size: 10px;'>©2025 Yoshifumi Morita</span></span></header>
+<header>♪<span id="titleText">オトノルーム</span>
+  <span class="developer">MORITA Education System×道北音楽教育研究所<br/><span style='font-size: 10px; display:block; text-align:right;'>©2025 Yoshifumi Morita</span></span>
+</header>
 <div class="controls">
-<button id="recordBtn">録音開始</button>
-<button id="stopBtn">録音停止</button>
-<button id="fileAddBtn">ファイル追加</button>
-<button id="saveBtn">保存</button>
-<button id="openBtn">開く</button>
-<button id="playBtn">再生</button>
-<button id="pauseBtn">一時停止</button>
-<span id="recTime">録音時間: 0秒</span>   拍子:<select id="meterSelect"><option value="3">3拍子</option><option selected="" value="4">4拍子</option></select>   テンポ:<input id="tempoSlider" max="240" min="30" step="1" type="range" value="60"/><span id="bpmDisplay">60</span> BPM
+  <button id="recordBtn">録音開始</button>
+  <button id="stopBtn">録音停止</button>
+  <button id="fileAddBtn">ファイル追加</button>
+  <button id="saveBtn">保存</button>
+  <button id="openBtn">開く</button>
+  <button id="playBtn">再生</button>
+  <button id="pauseBtn">一時停止</button>
+  <span id="recTime">録音時間: 0秒</span>&nbsp;&nbsp;&nbsp;拍子:
+  <select id="meterSelect"><option value="3">3拍子</option><option selected value="4">4拍子</option></select>&nbsp;&nbsp;&nbsp;テンポ:
+  <input id="tempoSlider" max="240" min="30" step="1" type="range" value="60"/><span id="bpmDisplay">60</span> BPM
 </div>
 <div id="trackWrapper">
-<div id="trackSidebar"></div>
-<div id="trackArea">
-<div id="timelineOverlay"></div>
-<div id="tracksContainer"></div>
-</div>
+  <div id="trackSidebar"></div>
+  <div id="trackArea">
+    <div id="timelineOverlay"></div>
+    <div id="tracksContainer"></div>
+  </div>
 </div>
 
-<input accept="audio/*" id="hiddenFileInput" multiple="" style="display:none;" type="file"/>
-<input accept=".soundroomproj,.json" id="hiddenProjectInput" style="display:none;" type="file"/>
+<input accept="audio/*" id="hiddenFileInput" multiple style="display:none" type="file"/>
+<input accept=".soundroomproj,.json" id="hiddenProjectInput" style="display:none" type="file"/>
+
 <script>
-// ----- Constants -----
+/* ================== Constants ================== */
 const beatWidth = 50;
 const trackHeight = 40;
 const rowGap = 10;
 const trackSpacing = trackHeight + rowGap;
-const totalBeats = 160; // 160拍ぶん描画
+const totalBeats = 160;
 let meter = 4;
 
 let mediaRecorder=null,chunks=[],trackIndex=0,currentTrackEl=null,currentAudioEl=null,timer=null;
 const trackColors=['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22'];
 
-// ----- Elements -----
+/* ================== Elements ================== */
 const recordBtn=document.getElementById('recordBtn');
-const stopBtn=document.getElementById('stopBtn');
-stopBtn.disabled = true;
+const stopBtn=document.getElementById('stopBtn'); stopBtn.disabled = true;
 const playBtn=document.getElementById('playBtn');
 const pauseBtn=document.getElementById('pauseBtn');
-const restartBtn=document.getElementById('restartBtn');
 const fileAddBtn=document.getElementById('fileAddBtn');
 const hiddenFile=document.getElementById('hiddenFileInput');
 const saveBtn=document.getElementById('saveBtn');
 const openBtn=document.getElementById('openBtn');
-const hiddenProjectInput=document.getElementById('hiddenProjectInput');
 const meterSel=document.getElementById('meterSelect');
 const tempoSlider=document.getElementById('tempoSlider');
 const bpmDisplay=document.getElementById('bpmDisplay');
 const recTimeLabel=document.getElementById('recTime');
 
-// ----- Tempo -----
+/* ================== Tempo & Timeline ================== */
 let bpm=parseInt(tempoSlider.value);
 let playbackRate=bpm/60;
 tempoSlider.addEventListener('input',()=>{bpm=parseInt(tempoSlider.value);bpmDisplay.textContent=bpm;playbackRate=bpm/60;});
 
-// ----- Timeline Overlay -----
 function createTimeline(beats=totalBeats){
   const ov=document.getElementById('timelineOverlay');
   ov.innerHTML='';
   ov.style.width=(beats*beatWidth)+'px';
   for(let i=0;i<beats;i++){
     const x=i*beatWidth;
-    // vertical line
     const v=document.createElement('div');
-const isMeasureStart = (i % meter) === 0;
-const lineWidth = isMeasureStart ? 2 : 1;
-const lineOpacity = isMeasureStart ? 0.6 : 0.35;
-v.style.cssText=`position:absolute;top:0;bottom:0;left:${x}px;width:${lineWidth}px;background:rgba(0,0,0,${lineOpacity});`;
-ov.appendChild(v);
-    // beat number
+    const isMeasureStart = (i % meter) === 0;
+    const lineWidth = isMeasureStart ? 2 : 1;
+    const lineOpacity = isMeasureStart ? 0.6 : 0.35;
+    v.style.cssText=`position:absolute;top:0;bottom:0;left:${x}px;width:${lineWidth}px;background:rgba(0,0,0,${lineOpacity});`;
+    ov.appendChild(v);
     const lbl=document.createElement('div');
     lbl.style.cssText=`position:absolute;top:0;left:${x}px;width:${beatWidth}px;height:${rowGap}px;line-height:${rowGap}px;text-align:center;font-size:12px;background:rgba(255,255,255,0.9);`;
     lbl.textContent=(i%meter)+1;
@@ -110,11 +114,9 @@ ov.appendChild(v);
   }
 }
 createTimeline();
-
-// update timeline when meter changes
 meterSel.addEventListener('change',e=>{meter=parseInt(e.target.value);createTimeline();});
 
-// ----- Sidebar Row -----
+/* ================== Sidebar Row ================== */
 function addSidebarRow(index,audio){
   const sidebar=document.getElementById('trackSidebar');
   const row=document.createElement('div');
@@ -134,139 +136,172 @@ function addSidebarRow(index,audio){
   slider.min=0; slider.max=1; slider.step=0.01; slider.value=1;
   slider.oninput=()=>{document.querySelectorAll(`.track[data-row="${index}"] audio`).forEach(el=>el.volume=parseFloat(slider.value));};
   row.appendChild(slider);
-
   sidebar.appendChild(row);
 }
 
-// ----- Track Enhancements -----
+/* ================== GLOBAL pointer resize state (Edge-safe) ================== */
+let r_active=false;
+let r_side=null; // 'left' | 'right'
+let r_track=null;
+let r_pid=null;  // pointerId
+let r_startX=0;
+let r_baseLeft=0;
+let r_baseWidth=0;
+let r_baseTrim=0;
+
+function pxInt(v, fallback=0){ const n=parseInt(v); return isNaN(n)?fallback:n; }
+function pxFloat(v, fallback=0){ const n=parseFloat(v); return isNaN(n)?fallback:n; }
+
+function beginResize(track, side, e, handle){
+  r_active=true; r_side=side; r_track=track; r_pid=e.pointerId;
+  r_startX=e.clientX;
+  r_baseLeft=pxInt(track.style.left, track.offsetLeft);
+  r_baseWidth=pxFloat(track.style.width, track.getBoundingClientRect().width);
+  r_baseTrim=pxFloat(track.dataset.trimStartSec||'0', 0);
+  try{ handle.setPointerCapture(r_pid);}catch{}
+  document.body.style.cursor='ew-resize';
+}
+function doResize(e){
+  if(!r_active || e.pointerId!==r_pid || !r_track) return;
+  const dx = e.clientX - r_startX;
+  const minW = beatWidth;
+  if(r_side==='left'){
+    // propose values
+    let newWidth = r_baseWidth - dx;
+    if(newWidth < minW){ newWidth = minW; }
+    // clamp dx to effective amount applied
+    const effDx = r_baseWidth - newWidth;
+    const newLeft = r_baseLeft + effDx;
+    r_track.style.width = newWidth + 'px';
+    r_track.style.left  = newLeft  + 'px';
+    const secPerBeat=60/bpm;
+    r_track.dataset.trimStartSec = Math.max(0, r_baseTrim + (effDx/beatWidth)*secPerBeat);
+  }else if(r_side==='right'){
+    let newWidth = r_baseWidth + dx;
+    if(newWidth < minW){ newWidth = minW; }
+    r_track.style.width = newWidth + 'px';
+  }
+  e.preventDefault();
+}
+function endResize(e, handle){
+  if(e.pointerId!==r_pid) return;
+  try{ handle && handle.releasePointerCapture(r_pid);}catch{}
+  r_active=false; r_side=null; r_track=null; r_pid=null;
+  document.body.style.cursor='default';
+}
+
+/* ================== Track Enhancements ================== */
 function enhanceTrack(track,audio){
-  const rh=document.createElement('div');
-  rh.className='resize-handle';
-  track.appendChild(rh);
-  // --- 左リサイズハンドルの追加 ---
-  const lh = document.createElement('div');
-  lh.className = 'resize-handle';
-  lh.style.left = '0px';
-  lh.style.right = 'auto';
-  lh.style.cursor = 'ew-resize';
-  track.appendChild(lh);
+  // handles
+  const rh=document.createElement('div'); rh.className='resize-handle resize-right'; track.appendChild(rh);
+  const lh=document.createElement('div'); lh.className='resize-handle resize-left';  track.appendChild(lh);
 
-  let resizingLeft = false;
-  let startLX = 0;
-  lh.addEventListener('mousedown', e => {
-    resizingLeft = true;
-    startLX = e.clientX;
-    e.stopPropagation();
-  });
+  // attach start/end only to handles; pointermove is window-level (Edgeでのイベント伝播差異対策)
+  lh.addEventListener('pointerdown', e=>{ e.stopPropagation(); beginResize(track,'left', e, lh); });
+  rh.addEventListener('pointerdown', e=>{ e.stopPropagation(); beginResize(track,'right',e, rh); });
+  window.addEventListener('pointermove', doResize, {passive:false});
+  const endL = e=> endResize(e, lh);
+  const endR = e=> endResize(e, rh);
+  window.addEventListener('pointerup', endL);
+  window.addEventListener('pointercancel', endL);
+  window.addEventListener('pointerup', endR);
+  window.addEventListener('pointercancel', endR);
 
-  document.addEventListener('mousemove', e => {
-    if (resizingLeft) {
-      const dx = e.clientX - startLX;
-      const newWidth = Math.max(beatWidth, parseFloat(track.style.width) - dx);
-      const newLeft = parseInt(track.style.left || 0) + dx;
-
-      if (newWidth >= beatWidth) {
-        track.style.width = newWidth + 'px';
-        track.style.left = newLeft + 'px';
-        const secPerBeat = 60 / bpm;
-      const deltaTrim = dx / beatWidth * secPerBeat;
-      const currentTrim = parseFloat(track.dataset.trimStartSec || 0);
-      track.dataset.trimStartSec = Math.max(0, currentTrim + deltaTrim);
-      startLX = e.clientX;
-      }
+  // Drag (disabled while resizing)
+  (function(){
+    let d_pid=null, d_startX=0, baseLeft=0;
+    track.addEventListener('pointerdown', e=>{
+      if(e.target.closest('.resize-handle')) return;
+      if(r_active) return;
+      d_pid=e.pointerId; d_startX=e.clientX; baseLeft=pxInt(track.style.left, track.offsetLeft);
+      track.setPointerCapture(d_pid);
+      document.body.style.cursor='grabbing';
+      e.preventDefault();
+    });
+    function d_move(e){
+      if(d_pid===null || e.pointerId!==d_pid) return;
+      if(r_active) return;
+      const dx=e.clientX-d_startX;
+      track.style.left = (baseLeft + dx) + 'px';
+      e.preventDefault();
     }
-  });
+    function d_end(e){
+      if(d_pid===null || e.pointerId!==d_pid) return;
+      try{ track.releasePointerCapture(d_pid);}catch{}
+      d_pid=null;
+      document.body.style.cursor='default';
+    }
+    window.addEventListener('pointermove', d_move, {passive:false});
+    window.addEventListener('pointerup', d_end);
+    window.addEventListener('pointercancel', d_end);
+  })();
 
-  document.addEventListener('mouseup', () => resizingLeft = false);
-
-
+  // Delete
   const del=document.createElement('button');
   del.textContent='×';
   del.style.cssText='position:absolute;right:10px;top:5px;';
-  
-  del.onclick = () => {
-  const removedTop = parseInt(track.style.top);
-  track.remove();
-
-  // 同じ行にまだトラックが残っているか確認
-  const tracksSameRow = Array.from(document.querySelectorAll('.track')).filter(t => parseInt(t.style.top) === removedTop);
-  if (tracksSameRow.length === 0) {
-    // 対応するサイドバーも削除
-    document.querySelectorAll('.trackSidebar').forEach(sb=>{
-      if (parseInt(sb.style.top) === removedTop) sb.remove();
-    });
-  }
-
-  // 行を再構成して詰める
-  compactTracks();
-};
-
+  del.onclick=()=>{
+    const removedTop=pxInt(track.style.top);
+    track.remove();
+    const tracksSameRow=Array.from(document.querySelectorAll('.track')).filter(t=>pxInt(t.style.top)===removedTop);
+    if(tracksSameRow.length===0){
+      document.querySelectorAll('.trackSidebar').forEach(sb=>{ if(pxInt(sb.style.top)===removedTop) sb.remove(); });
+    }
+    compactTracks();
+  };
   track.appendChild(del);
+  track._delBtn = del;
 
+  // Duplicate
   const dup=document.createElement('button');
   dup.textContent='＋';
   dup.style.cssText='position:absolute;right:70px;top:5px;';
-  
-
-
-dup.onclick = () => {
-  const clone = track.cloneNode(true);
-  // Reset context‑menu patched flag on clone so patchTrack runs
-  clone.removeAttribute('data-cm-patched');
-
-  clone.dataset.row = track.dataset.row;
-  clone.dataset.trimStartSec = track.dataset.trimStartSec || 0; // 子要素も含めてコピー
-  const originalAudio = track.querySelector('audio');
-  const newAudio = clone.querySelector('audio');
-
-  newAudio.src = originalAudio.src;
-  newAudio.volume = originalAudio.volume;
-
-  // トラック位置を少し右へずらす（左位置）
-  const currentLeft = parseInt(track.style.left || '0');
-  clone.style.left = (currentLeft + beatWidth) + 'px';
-
-  document.getElementById('tracksContainer').appendChild(clone);
-  enhanceTrack(clone, newAudio);
-  patchTrack(clone);
-};
-
-
-
+  dup.onclick=()=>{
+    const clone = track.cloneNode(true);
+    clone.removeAttribute('data-cm-patched');
+    clone.dataset.row = track.dataset.row;
+    clone.dataset.trimStartSec = track.dataset.trimStartSec || 0;
+    const originalAudio = track.querySelector('audio');
+    const newAudio = clone.querySelector('audio');
+    newAudio.src = originalAudio.src;
+    newAudio.volume = originalAudio.volume;
+    const currentLeft = pxInt(track.style.left, track.offsetLeft);
+    clone.style.left = (currentLeft + beatWidth) + 'px';
+    document.getElementById('tracksContainer').appendChild(clone);
+    enhanceTrack(clone, newAudio);
+    if (window.patchTrack) window.patchTrack(clone);
+  };
   track.appendChild(dup);
+  track._dupBtn = dup;
 
-  // dragging
-  let dragging=false,startX=0;
-  track.addEventListener('mousedown',e=>{
-    if(e.target.classList.contains('resize-handle'))return;
-    dragging=true;startX=e.clientX;document.body.style.cursor='grabbing';
-  });
-  document.addEventListener('mousemove',e=>{
-    if(dragging){
-      const dx=e.clientX-startX;
-      track.style.left=(parseInt(track.style.left||0)+dx)+'px';
-      startX=e.clientX;
+  // Context menu (right-click) & long-press
+  track.addEventListener('contextmenu', (e)=>{
+    e.preventDefault();
+    if(window._trackContextMenu && window._trackContextMenu.showMenu){
+      window._trackContextMenu.showMenu(track, e.clientX, e.clientY);
     }
   });
-  document.addEventListener('mouseup',()=>{dragging=false;document.body.style.cursor='default';});
-
-  // resizing
-  let resizing=false,startRX=0;
-  rh.addEventListener('mousedown',e=>{resizing=true;startRX=e.clientX;e.stopPropagation();});
-  document.addEventListener('mousemove',e=>{
-    if(resizing){
-      const dx=e.clientX-startRX;
-      
-    const newWidth = Math.max(beatWidth, parseFloat(track.style.width) + dx);
-    track.style.width = newWidth + 'px';
-    
-      startRX=e.clientX;
-    }
-  });
-  document.addEventListener('mouseup',()=>resizing=false);
+  (function(){
+    let lpTimer=null, startPoint=null;
+    track.addEventListener('pointerdown', (e)=>{
+      if(e.pointerType==='touch' || e.pointerType==='pen'){
+        startPoint = {x:e.clientX, y:e.clientY};
+        lpTimer = setTimeout(()=>{
+          if(window._trackContextMenu && window._trackContextMenu.showMenu){
+            window._trackContextMenu.showMenu(track, startPoint.x, startPoint.y);
+          }
+        }, 550);
+      }
+    }, {passive:true});
+    function clearLP(){ if(lpTimer){ clearTimeout(lpTimer); lpTimer=null; } }
+    track.addEventListener('pointerup', clearLP, {passive:true});
+    track.addEventListener('pointercancel', clearLP, {passive:true});
+    track.addEventListener('pointermove', clearLP, {passive:true});
+  })();
 }
 
-// ----- Recording -----
+
+/* ================== Recording (unchanged) ================== */
 recordBtn.onclick = () => {
   recordBtn.disabled = true;
   stopBtn.disabled = true;
@@ -299,32 +334,30 @@ recordBtn.onclick = () => {
     const startT=Date.now();
     timer=setInterval(()=>{
       const sec=Math.floor((Date.now()-startT)/1000);
-      recTimeLabel.textContent=`録音時間: ${sec}秒`;
+      setRecTime(sec);
       currentTrackEl.style.width=(sec*beatWidth)+'px';
     },1000);
 
     enhanceTrack(currentTrackEl,currentAudioEl);
   }).catch(err=>{
     console.error(err);
-    alert('マイクへのアクセスが許可されなかったため、録音を開始できませんでした。ブラウザのアドレスバー付近の設定からマイクを許可してください。');
-    // ボタン状態を元に戻す
+    alert('マイクへのアクセスが許可されなかったため、録音を開始できませんでした。ブラウザの設定からマイクを許可してください。');
     recordBtn.disabled = false;
     stopBtn.disabled = true;
   });
 };
-
 stopBtn.onclick=()=>{
   if(mediaRecorder){
     mediaRecorder.stop();
     clearInterval(timer);
-    recTimeLabel.textContent='録音時間: 0秒';
+    setRecTime(0);
     recordBtn.disabled = false;
     stopBtn.disabled = true;
     mediaRecorder = null;
   }
 };
 
-// ----- File Import -----
+/* ================== File Import ================== */
 fileAddBtn.onclick=()=>hiddenFile.click();
 hiddenFile.onchange=e=>{
   Array.from(e.target.files).forEach(file=>{
@@ -332,11 +365,9 @@ hiddenFile.onchange=e=>{
     addTrackFromFile(url,file.name);
   });
   hiddenFile.value='';
-
-  // reset recording controls (added v4)
   if(recordBtn) recordBtn.disabled = false;
   if(stopBtn) stopBtn.disabled = true;
-  if(typeof recTimeLabel !== 'undefined') recTimeLabel.textContent = '録音時間: 0秒';
+  if(typeof recTimeLabel !== 'undefined') setRecTime(0);
 };
 function addTrackFromFile(url,label){
   const top=rowGap+trackIndex*trackSpacing;
@@ -353,12 +384,9 @@ function addTrackFromFile(url,label){
   trackIndex++;
 }
 
-// ----- Playback Management -----
+/* ================== Playback ================== */
 let playbackTimeouts=[];
-function clearPlaybackTimeouts(){
-  playbackTimeouts.forEach(id=>clearTimeout(id));
-  playbackTimeouts=[];
-}
+function clearPlaybackTimeouts(){ playbackTimeouts.forEach(id=>clearTimeout(id)); playbackTimeouts=[]; }
 
 function startPlayback(){
   clearPlaybackTimeouts();
@@ -372,8 +400,8 @@ function startPlayback(){
   document.querySelectorAll('.track').forEach(tr=>{
     const au=tr.querySelector('audio');
     if(!au||!au.src)return;
-    const leftBeats=parseInt(tr.style.left||0)/beatWidth;
-    const durBeats=parseFloat(tr.style.width)/beatWidth;
+    const leftBeats=pxInt(tr.style.left, tr.offsetLeft)/beatWidth;
+    const durBeats=pxFloat(tr.style.width, tr.getBoundingClientRect().width)/beatWidth;
     const slider=document.querySelector(`.trackSidebar[data-row="${tr.dataset.row}"] input[type='range']`);
     if(slider) au.volume=parseFloat(slider.value);
     const trimSec = parseFloat(tr.dataset.trimStartSec || 0);
@@ -391,16 +419,10 @@ function startPlayback(){
   ph.style.transition=`left ${(maxEnd/playbackRate)}s linear`;
   ph.style.left=(maxEnd*beatWidth)+'px';
 }
-
-// ----- Play Buttons -----
 playBtn.onclick=startPlayback;
-
 pauseBtn.onclick=()=>{
-  // Pause audios
   document.querySelectorAll('.track audio').forEach(au=>{ if(!au.paused){au.pause();} });
-  // Stop scheduled events
   clearPlaybackTimeouts();
-  // Freeze playhead
   const ph=document.getElementById('playhead');
   if(ph){
     const left=parseFloat(window.getComputedStyle(ph).left);
@@ -409,20 +431,7 @@ pauseBtn.onclick=()=>{
   }
 };
 
-
-
-let pausedAt = null;
-
-function getTrackLabel(track){
-  for(const n of track.childNodes){
-    if(n.nodeType===3){
-      const txt=n.textContent.trim();
-      if(txt) return txt;
-    }
-  }
-  return track.dataset.label||'Track';
-}
-
+/* ================== Save/Open ================== */
 async function saveProject(){
   const tracksData=[];
   const tracks=document.querySelectorAll('.track');
@@ -430,12 +439,13 @@ async function saveProject(){
     const au=tr.querySelector('audio');
     if(!au||!au.src) continue;
     const obj={
-      label:getTrackLabel(tr),
-      top:parseInt(tr.style.top)||tr.offsetTop,
-      left:parseInt(tr.style.left)||tr.offsetLeft,
-      width:parseInt(tr.style.width)||tr.offsetWidth,
+      label:'',
+      top:pxInt(tr.style.top)||tr.offsetTop,
+      left:pxInt(tr.style.left)||tr.offsetLeft,
+      width:pxInt(tr.style.width)||tr.offsetWidth,
       color:tr.style.backgroundColor,
-      volume:au.volume
+      volume:au.volume,
+      trimStartSec: parseFloat(tr.dataset.trimStartSec || 0)
     };
     try{
       const blob=await fetch(au.src).then(r=>r.blob());
@@ -443,7 +453,7 @@ async function saveProject(){
     }catch(e){console.error(e);}
     tracksData.push(obj);
   }
-  const project={version:8,meter,bpm,tracks:tracksData};
+  const project={version:13,meter,bpm,tracks:tracksData};
   const blob=new Blob([JSON.stringify(project)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -451,12 +461,10 @@ async function saveProject(){
   a.click();
   URL.revokeObjectURL(a.href);
 }
-
 function clearProject(){
   document.getElementById('tracksContainer').innerHTML='';
   document.getElementById('trackSidebar').innerHTML='';
 }
-
 function loadProject(data){
   clearProject();
   meter=data.meter||4; bpm=data.bpm||60;
@@ -467,16 +475,11 @@ function loadProject(data){
   const uniqueTops=[...new Set(data.tracks.map(t=>t.top))].sort((a,b)=>a-b);
   const topToRow=new Map(uniqueTops.map((top,idx)=>[top,idx]));
   data.tracks.forEach(t=>{
-  // 最後に読み込んだトラックの下の行に次の録音を配置するために trackIndex を更新
-  const tops = data.tracks.map(t => t.top);
-  if (tops.length > 0) {
-    trackIndex = Math.floor(Math.max(...tops) / trackSpacing + 1);
-  } else {
-    trackIndex = 0;
-  }
-
+    const tops = data.tracks.map(t => t.top);
+    trackIndex = tops.length > 0 ? Math.floor(Math.max(...tops) / trackSpacing + 1) : 0;
     const tr=document.createElement('div');
     tr.className='track';
+    tr.dataset.trimStartSec = t.trimStartSec || 0;
     Object.assign(tr.style,{
       left:t.left+'px',
       top:t.top+'px',
@@ -496,12 +499,8 @@ function loadProject(data){
     enhanceTrack(tr,au);
   });
 }
-
-/* ---------- Event bindings ---------- */
 saveBtn.addEventListener('click',saveProject);
-
 openBtn.addEventListener('click',async ()=>{
-  // Prefer File System Access API if available
   if(window.showOpenFilePicker){
     try{
       const [fileHandle] = await window.showOpenFilePicker({
@@ -514,11 +513,8 @@ openBtn.addEventListener('click',async ()=>{
       const data=JSON.parse(text);
       loadProject(data);
       return;
-    }catch(err){
-      // User canceled or API not allowed; fall back
-    }
+    }catch(err){}
   }
-  // Fallback: temporary input element
   const inp=document.createElement('input');
   inp.type='file';
   inp.accept='.soundroomproj,.json';
@@ -542,46 +538,16 @@ openBtn.addEventListener('click',async ()=>{
   inp.click();
 });
 
-</script>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<!-- Context menu with global delegation -->
-<style>
-.track button{
-  position:absolute !important;
-  width:0 !important;
-  height:0 !important;
-  padding:0 !important;
-  margin:0 !important;
-  border:none !important;
-  opacity:0 !important;
-  pointer-events:none !important;
-}
-#trackContextMenu button{margin:2px 6px;}
-</style>
-<script>
+/* ================== Context menu minimal ================== */
 document.addEventListener('DOMContentLoaded', () => {
   const menu = document.createElement('div');
   menu.id = 'trackContextMenu';
   menu.style.cssText = 'position:fixed;display:none;background:#fff;border:1px solid #666;padding:4px;border-radius:4px;z-index:10000;';
   menu.innerHTML = '<button id="cmDup">複製</button><button id="cmDel">削除</button>';
   document.body.appendChild(menu);
+
+  // expose globally so tracks can open it
+  window._trackContextMenu = {};
 
   let currentTrack = null;
   function showMenu(track, x, y){
@@ -590,155 +556,72 @@ document.addEventListener('DOMContentLoaded', () => {
     menu.style.top = y + 'px';
     menu.style.display = 'block';
   }
-  function hideMenu(){
-    menu.style.display = 'none';
-    currentTrack = null;
-  }
-
-  document.addEventListener('click', e => {
-    if(!menu.contains(e.target)) hideMenu();
-  });
-
-  document.getElementById('cmDup').addEventListener('click', () => {
-    if(currentTrack && currentTrack._dupBtn) currentTrack._dupBtn.click();
-    hideMenu();
-  });
-  document.getElementById('cmDel').addEventListener('click', () => {
-    if(currentTrack && currentTrack._delBtn) currentTrack._delBtn.click();
-    hideMenu();
-  });
-
-  function patchTrack(track){
-    if(track.dataset.cmPatched) return;
-
-    if(track.dataset.cmPatched) return;
-    track.dataset.cmPatched = '1';
-
-    const buttons = Array.from(track.querySelectorAll('button'));
-    buttons.forEach(btn => {
-      const txt = btn.textContent.trim();
-      if(txt === '＋' || txt === '複製' || txt === 'Copy' || txt === 'Duplicate') track._dupBtn = btn;
-      if(txt === '×' || txt === '削除' || txt === 'Del' || txt === 'Delete') track._delBtn = btn;
-    });
-  }
-
-  function patchAll(){
-    document.querySelectorAll('.track').forEach(patchTrack);
-  }
-  patchAll();
-
-  // Observe DOM changes
-  const observer = new MutationObserver(muts => {
-    muts.forEach(m => {
-      m.addedNodes.forEach(node => {
-        if(node.nodeType === 1){
-          if(node.classList.contains('track')) patchTrack(node);
-          else node.querySelectorAll && node.querySelectorAll('.track').forEach(patchTrack);
-        }
-      });
-    });
-  });
-  window.patchTrack = patchTrack;
-  observer.observe(document.body, {childList:true, subtree:true});
-
-  // Global contextmenu delegation
-  document.body.addEventListener('contextmenu', e => {
-    const track = e.target.closest('.track');
-    if(track){
-      e.preventDefault();
-      showMenu(track, e.clientX, e.clientY);
-    }
-  }, false);
-
-  // Global long‑press delegation
-  let lpTimer = null;
-  document.body.addEventListener('touchstart', e => {
-    const track = e.target.closest('.track');
-    if(!track) return;
-    lpTimer = setTimeout(() => {
-      showMenu(track, e.touches[0].clientX, e.touches[0].clientY);
-    }, 600);
-  });
-  const clearLP = () => clearTimeout(lpTimer);
-  document.body.addEventListener('touchend', clearLP);
-  document.body.addEventListener('touchmove', clearLP);
-
-  // Keyboard shortcuts (need selected track)
-  let selectedTrack = null;
-  document.body.addEventListener('click', e => {
-    const track = e.target.closest('.track');
-    if(track){
-      if(selectedTrack) selectedTrack.classList.remove('selected');
-      selectedTrack = track;
-      track.classList.add('selected');
-    }
-  });
-
-  document.addEventListener('keydown', e => {
-    if(!selectedTrack) return;
-    if(e.key === 'Delete'){ e.preventDefault(); selectedTrack._delBtn?.click(); }
-    if((e.key === 'd' || e.key === 'D') && e.ctrlKey){ e.preventDefault(); selectedTrack._dupBtn?.click(); }
-  });
+  function hideMenu(){ menu.style.display = 'none'; currentTrack = null; }
+  window._trackContextMenu.showMenu = showMenu;
+  window._trackContextMenu.hideMenu = hideMenu;
+  document.addEventListener('click', e => { if(!menu.contains(e.target)) hideMenu(); });
+  document.getElementById('cmDup').addEventListener('click', () => { if(currentTrack && currentTrack._dupBtn) currentTrack._dupBtn.click(); hideMenu(); });
+  document.getElementById('cmDel').addEventListener('click', () => { if(currentTrack && currentTrack._delBtn) currentTrack._delBtn.click(); hideMenu(); });
 });
 
 
-/**
- * 再配置：空行があれば上に詰め，行番号・色・イベントを再割当
- */
-function compactTracks(){
-  const tracks = Array.from(document.querySelectorAll('.track'));
-  const sidebars = Array.from(document.querySelectorAll('.trackSidebar'));
+/* ================== Furigana (improved) ================== */
+const FURIGANA_DICT = [
+  ['録音開始','ろくおんかいし'],['録音停止','ろくおんていし'],['録音時間','ろくおんじかん'],
+  ['一時停止','いちじていし'],['拍子','ひょうし'],['保存','ほぞん'],['開く','ひらく'],
+  ['再生','さいせい'],['秒','びょう'],['追加','ついか'],['複製','ふくせい'],['削除','さくじょ']
+];
 
-  if(tracks.length === 0){
-    trackIndex = 0;
-    return;
+function escapeRegExp(str){return str.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+
+function furiganaWrapAll(text){
+  // Dictionary-based ruby only (to avoid double-wrapping)
+  const dict=[...FURIGANA_DICT].sort((a,b)=>b[0].length-a[0].length);
+  let out = text;
+  for(const [word, kana] of dict){
+    const re = new RegExp(escapeRegExp(word), 'g');
+    out = out.replace(re, `<ruby><rb>${word}</rb><rt>${kana}</rt></ruby>`);
   }
-
-  // 現在の行(top値)を小さい順に並べ替え
-  const uniqueTops = [...new Set(tracks.map(tr=>parseInt(tr.style.top)))].sort((a,b)=>a-b);
-
-  uniqueTops.forEach((oldTop, newRow)=>{
-    const newTop = rowGap + newRow * trackSpacing;
-    if(oldTop !== newTop){
-      // トラック側
-      tracks.filter(tr=>parseInt(tr.style.top)===oldTop).forEach(tr=>{
-        tr.style.top = newTop + 'px';
-        tr.dataset.row = newRow;
-        // 背景色更新
-        tr.style.backgroundColor = trackColors[newRow % trackColors.length];
-
-        // 先頭テキストノードが "Track n" の場合のみ更新
-        const firstNode = tr.firstChild;
-        if(firstNode && firstNode.nodeType === 3 && /^Track\s+\d+/.test(firstNode.textContent.trim())){
-          firstNode.textContent = `Track ${newRow+1}`;
-        }
-      });
-
-      // サイドバー側
-      sidebars.filter(sb=>parseInt(sb.style.top)===oldTop).forEach(sb=>{
-        sb.style.top = newTop + 'px';
-        sb.dataset.row = newRow;
-
-        const label = sb.querySelector('div');
-        if(label && /^Track\s+\d+/.test(label.textContent.trim())){
-          label.textContent = `Track ${newRow+1}`;
-        }
-
-        const slider = sb.querySelector('input[type="range"]');
-        if(slider){
-          slider.oninput = () => {
-            document.querySelectorAll(`.track[data-row="${newRow}"] audio`).forEach(a=>a.volume=parseFloat(slider.value));
-          };
-        }
-      });
-    }
-  });
-
-  // trackIndex を更新
-  trackIndex = uniqueTops.length;
+  return out;
 }
 
-</script>
+function applyFurigana(root){
+  const EXCLUDE_TEXT = '道北音楽教育研究所';
+  const SKIP = new Set(['SCRIPT','STYLE','RUBY','RT','RB','TEXTAREA','SELECT','OPTION']);
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node){
+      const txt = node.nodeValue;
+      const p = node.parentElement;
+      if(!txt || !txt.trim()) return NodeFilter.FILTER_REJECT;
+      if(!p) return NodeFilter.FILTER_REJECT;
+      if(p.closest('ruby')) return NodeFilter.FILTER_REJECT;
+      if(SKIP.has(p.tagName)) return NodeFilter.FILTER_REJECT;
+      if(txt.includes(EXCLUDE_TEXT)) return NodeFilter.FILTER_REJECT;
+      if(/[\u4E00-\u9FFF]/.test(txt)) return NodeFilter.FILTER_ACCEPT;
+      return NodeFilter.FILTER_REJECT;
+    }
+  });
+  const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(tn=>{
+    const span = document.createElement('span');
+    span.innerHTML = furiganaWrapAll(tn.nodeValue);
+    tn.parentNode.replaceChild(span, tn);
+  });
+}
 
+// helper for dynamic "録音時間"
+function setRecTime(sec){
+  const text = `録音時間: ${sec}秒`;
+  const html = furiganaWrapAll(text);
+  recTimeLabel.innerHTML = html;
+}
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  applyFurigana(document.body);
+  // ensure initial label has furigana
+  setRecTime(0);
+});
+
+</script>
 </body>
 </html>

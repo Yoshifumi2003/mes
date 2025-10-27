@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang='ja'>
+<head>
+<meta charset='utf-8'>
+<title>♪オトノシラセ</title>
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+<style>
+:root{--header-bg:#ffb84d;--btn-blue:#007bff;--btn-red:#dc3545;--btn-green:#28a745;--border:#1976d2;--card-bg:#ffffff;}
+*{box-sizing:border-box;font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Hiragino Kaku Gothic ProN','Noto Sans JP','Yu Gothic UI','Meiryo',sans-serif;}
+body{margin:0;background:#f5f7fb;color:#222;}
+header{height:60px;background:var(--header-bg);display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-weight:bold;}
+header .title{font-size:1.2rem;} header .brand{text-align:right;font-size:0.8rem;line-height:1.2;}
+main{padding:24px;max-width:1200px;margin:auto;}
+h2{border-bottom:3px solid var(--border);padding-bottom:4px;}
+.card{background:var(--card-bg);padding:16px;border-radius:12px;box-shadow:0 2px 6px rgba(0,0,0,.08);margin-bottom:28px;}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px;}
+.row label{font-size:0.9rem;width:auto;min-width:60px;}
+.row select,.row input[type='number'], .row input[type='text']{padding:6px;border:1px solid #ccc;border-radius:6px;}
+.row input[type='number']{width:120px;}
+.row input[type='range']{flex:1;min-width:160px;}
+.row button{padding:8px 12px;border:none;border-radius:8px;color:#fff;cursor:pointer}
+.row .start{background:var(--btn-blue);} .row .stop{background:var(--btn-red);}
+.canvas-wrap{width:100%;height:80px;margin-top:4px;}
+canvas{width:100%;height:100%;background:#000;border-radius:6px;}
+.threshold-form{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+.threshold-box{border:1px solid #ddd;border-radius:10px;padding:10px;background:#fff;}
+.threshold-box h4{margin:0 0 6px 0;}
+.threshold-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.status-dot{width:12px;height:12px;border-radius:50%;background:#ccc;display:inline-block;}
+.status-dot.connected{background:#28a745;}
+#serialLog{background:#0e1116;color:#d1d5db;border-radius:8px;padding:8px;white-space:pre-wrap;max-height:260px;overflow:auto;}
+.badge{padding:2px 6px;border-radius:6px;background:#eef;border:1px solid #99f;font-size:12px;}
+.flex-gap{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+h3{margin:12px 0 8px 0;}
+ruby rt{font-size:.6em; color:#000;} button.start ruby rt, button.stop ruby rt{color:#fff;}
+
+/* --- patch 2025-10-25: header orange, center badge, and specific label shift --- */
+header{position:relative;background:#ff8a00;color:#fff;}
+header .title, header .brand{color:#fff;}
+header .center-badge{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:8px;}
+header .center-badge .code5003{font-size:1.4rem;font-weight:900;letter-spacing:1px;line-height:1;}
+header .center-badge img{height:36px;width:auto;display:block;}
+#sec1 label.shift-label{margin-left:16px;}
+h2 ruby rt{font-size:.55em;}
+
+</style>
+</head>
+<body>
+<header>
+  <div class='title'>♪オトノシラセ</div>
+  <div class='brand'>MORITA Education System×道北音楽教育研究所<br>©2025 Yoshifumi Morita</div>
+  <div class='center-badge'><span class='code5003'><span style="color:#ffe0b3;">5003</span></span></div>
+</header>
+<main>
+<section class='card' id='sec1'>
+  <h2>1. <ruby>警報音<rt>けいほうおん</rt></ruby>づくり</h2>
+  <!-- Alarm 1 -->
+  <div class='alarm' id='alarm1'>
+    <h3><ruby>警報音<rt>けいほうおん</rt></ruby>1</h3>
+    <div class='row'>
+      <label><ruby>構成音<rt>こうせいおん</rt></ruby>A</label>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.6'>
+      <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
+      <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+    </div>
+    <div class='row'>
+      <label><ruby>構成音<rt>こうせいおん</rt></ruby>B</label>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.5'>
+      <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
+      <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+    </div>
+    <div class='row'>
+      <label><ruby>構成音<rt>こうせいおん</rt></ruby>C</label>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.4'>
+      <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
+      <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+    </div>
+    <div class='canvas-wrap'><canvas id='scope1'></canvas></div>
+  </div>
+  <!-- Alarm 2 -->
+  <div class='alarm' id='alarm2'>
+    <h3><ruby>警報音<rt>けいほうおん</rt></ruby>2</h3>
+    <div class='row'>
+      <label><ruby>構成音<rt>こうせいおん</rt></ruby>A</label>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.6'>
+      <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
+      <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+    </div>
+    <div class='row'>
+      <label><ruby>構成音<rt>こうせいおん</rt></ruby>B</label>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.5'>
+      <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
+      <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+    </div>
+    <div class='row'>
+      <label><ruby>構成音<rt>こうせいおん</rt></ruby>C</label>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.4'>
+      <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
+      <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+    </div>
+    <div class='canvas-wrap'><canvas id='scope2'></canvas></div>
+  </div>
+  <!-- Alarm 3 -->
+  <div class='alarm' id='alarm3'>
+    <h3><ruby>警報音<rt>けいほうおん</rt></ruby>3</h3>
+    <div class='row'>
+      <label><ruby>構成音<rt>こうせいおん</rt></ruby>A</label>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.6'>
+      <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
+      <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+    </div>
+    <div class='row'>
+      <label><ruby>構成音<rt>こうせいおん</rt></ruby>B</label>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.5'>
+      <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
+      <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+    </div>
+    <div class='row'>
+      <label><ruby>構成音<rt>こうせいおん</rt></ruby>C</label>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.4'>
+      <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
+      <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+    </div>
+    <div class='canvas-wrap'><canvas id='scope3'></canvas></div>
+  </div>
+</section>
+
+<section class='card'>
+  <h2>2. <ruby>発音<rt>はつおん</rt></ruby><ruby>条件<rt>じょうけん</rt></ruby></h2>
+  <div class='threshold-form'>
+    <div class='threshold-box'>
+      <h4><ruby>警報音<rt>けいほうおん</rt></ruby>1の<ruby>範囲<rt>はんい</rt></ruby></h4>
+      <div class='threshold-grid'>
+        <div><label><ruby>最小<rt>さいしょう</rt></ruby> m/s</label><input type='number' id='thr1_min' step='0.1' value='0.0'></div>
+        <div><label><ruby>最大<rt>さいだい</rt></ruby> m/s</label><input type='number' id='thr1_max' step='0.1' value='2.0'></div>
+      </div>
+    </div>
+    <div class='threshold-box'>
+      <h4><ruby>警報音<rt>けいほうおん</rt></ruby>2の<ruby>範囲<rt>はんい</rt></ruby></h4>
+      <div class='threshold-grid'>
+        <div><label><ruby>最小<rt>さいしょう</rt></ruby> m/s</label><input type='number' id='thr2_min' step='0.1' value='2.1'></div>
+        <div><label><ruby>最大<rt>さいだい</rt></ruby> m/s</label><input type='number' id='thr2_max' step='0.1' value='4.0'></div>
+      </div>
+    </div>
+    <div class='threshold-box'>
+      <h4><ruby>警報音<rt>けいほうおん</rt></ruby>3の<ruby>範囲<rt>はんい</rt></ruby></h4>
+      <div class='threshold-grid'>
+        <div><label><ruby>最小<rt>さいしょう</rt></ruby> m/s</label><input type='number' id='thr3_min' step='0.1' value='4.1'></div>
+        <div><label><ruby>最大<rt>さいだい</rt></ruby> m/s</label><input type='number' id='thr3_max' step='0.1' placeholder='上限なし'></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class='card'>
+  <h2>3. <ruby>訓練<rt>くんれん</rt></ruby>モード</h2>
+  <div class='row' style='gap:10px;align-items:flex-start'>
+    <div style='display:flex;flex-direction:column;gap:6px;min-width:280px;flex:1;'>
+      <label><ruby>数列<rt>すうれつ</rt></ruby><ruby>入力<rt>にゅうりょく</rt></ruby>（m/s, カンマ/<ruby>空白<rt>くうはく</rt></ruby>）</label>
+      <input type='text' id='seriesInput' placeholder='例) 0, 1.5, 2.3  4.8  3.0'>
+    </div>
+    <div style='display:flex;flex-direction:column;gap:6px;min-width:360px;'>
+      <div style='display:flex;gap:8px;flex-wrap:wrap;'>
+        <button class='start' id='seriesPlay'><ruby>再生<rt>さいせい</rt></ruby></button>
+        <button class='stop' id='seriesStop' disabled><ruby>停止<rt>ていし</rt></ruby></button>
+        <span class='badge'><ruby>現在<rt>げんざい</rt></ruby>の<ruby>訓練<rt>くんれん</rt></ruby><ruby>値<rt>ち</rt></ruby>: <b id='trainNow'>--</b> m/s</span>
+      </div>
+      <span class='badge' id='seriesStatus'><ruby>停止<rt>ていし</rt></ruby>中</span>
+    </div>
+  </div>
+</section>
+
+<section class='card'>
+  <h2>4. <ruby>実践<rt>じっせん</rt></ruby>モード</h2>
+  <div class='flex-gap' style='align-items:center'>
+    <button id='serialConnect'><ruby>風速計<rt>ふうそくけい</rt></ruby>と<ruby>接続<rt>せつぞく</rt></ruby></button>
+    <button class='start' style='background:#007bff;color:#fff;' id='realtimeStart' disabled><ruby>開始<rt>かいし</rt></ruby></button>
+    <button class='stop' style='background:#dc3545;color:#fff;' id='realtimeStop' disabled><ruby>停止<rt>ていし</rt></ruby></button>
+    <span class='status-dot' id='serialStatus' title='未接続'></span>
+    <span class='badge'><ruby>現在<rt>げんざい</rt></ruby><ruby>風速<rt>ふうそく</rt></ruby>: <b id='windDisplay'>--</b> m/s</span>
+    <span id='frameCount' class='badge'>Frames: 0</span>
+    <span id='frameAge' class='badge'>Last: --ms</span>
+  </div>
+  
+</section>
+</main>
+
+<script>
+/* ===== Audio engine ===== */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint:'interactive', sampleRate:48000 });
+['click','keydown','pointerdown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>audioCtx.resume(),{once:true}));
+function resumeAudio(){ if(audioCtx.state!=='running') audioCtx.resume().catch(()=>{}); }
+function clamp(v,a,b){ return Math.min(b, Math.max(a, v)); }
+// Rhythm mapping
+function mapRate(r){ if(r<=0) return 1; return 1 + (r-1)*(12-1)/9; }
+function mapDuty(r){ if(r<=0) return 1.0; return 0.55 + (r-1)*(0.90-0.55)/9; }
+function stepShaper(){ const c=new Float32Array(1024); for(let i=0;i<c.length;i++){ const x=i/(c.length-1)*2-1; c[i]=x>=0?1:0; } const ws=audioCtx.createWaveShaper(); ws.curve=c; return ws; }
+function createPWM(rate,duty){ const saw=audioCtx.createOscillator(); saw.type='sawtooth'; saw.frequency.value=rate; const bias=audioCtx.createConstantSource(); bias.offset.value=2*duty-1; bias.start(); const sum=audioCtx.createGain(); sum.gain.value=1; const st=stepShaper(); saw.connect(sum); bias.connect(sum); sum.connect(st); saw.start(); return {saw,bias,sum,st}; }
+
+class SoundComponent{
+  constructor(an){
+    this.an=an; this.params={type:'sine',vol:0.6,freq:100,rhythm:0};
+    this.osc=audioCtx.createOscillator(); this.osc.type='sine'; this.osc.frequency.value=100; this.osc.start();
+    this.vca=audioCtx.createGain(); this.vca.gain.value=1;
+    this.out=audioCtx.createGain(); this.out.gain.value=0;
+    this.osc.connect(this.vca).connect(this.out).connect(this.an);
+    this.muted=true; this.pwm=null; this.applyRhythm();
+  }
+  update(p){ Object.assign(this.params,p);
+    if(p.type!==undefined) this.osc.type=['sine','square','sawtooth','triangle'].includes(this.params.type)?this.params.type:'sine';
+    if(p.freq!==undefined) this.osc.frequency.setTargetAtTime(clamp(this.params.freq,20,20000), audioCtx.currentTime, 0.003);
+    if(p.vol!==undefined) this.applyVol();
+    if(p.rhythm!==undefined) this.applyRhythm();
+  }
+  applyVol(){ const t=audioCtx.currentTime, v=this.muted?0:clamp(this.params.vol,0,1); this.out.gain.cancelScheduledValues(t); this.out.gain.setTargetAtTime(v,t,0.004); }
+  applyRhythm(){
+    const t=audioCtx.currentTime;
+    if(this.pwm){ try{this.pwm.saw.stop(t+0.01);}catch{} try{ this.pwm.saw.disconnect(); this.pwm.bias.disconnect(); this.pwm.sum.disconnect(); this.pwm.st.disconnect();}catch{} this.pwm=null; }
+    const r=Math.round(clamp(+this.params.rhythm||0,0,10));
+    if(r<=0){ this.vca.gain.setValueAtTime(1,t); return; }
+    const pwm=createPWM(mapRate(r), mapDuty(r)); pwm.st.connect(this.vca.gain); this.pwm=pwm;
+  }
+  start(){ this.muted=false; this.applyVol(); }
+  stop(){ this.muted=true; this.applyVol(); }
+}
+
+class Alarm{
+  constructor(root, scopeId){
+    this.an=audioCtx.createAnalyser(); this.an.connect(audioCtx.destination);
+    this.components=[];
+    root.querySelectorAll('.row').forEach(row=>{
+      const c=new SoundComponent(this.an);
+      row.querySelector('.typeSel').addEventListener('input',e=>c.update({type:e.target.value}));
+      row.querySelector('.volR').addEventListener('input',e=>c.update({vol:+e.target.value}));
+      row.querySelector('.freqN').addEventListener('input',e=>c.update({freq:+e.target.value}));
+      row.querySelector('.ryR').addEventListener('input',e=>c.update({rhythm:+e.target.value}));
+      row.querySelector('.start').addEventListener('click',()=>{resumeAudio(); c.start();});
+      row.querySelector('.stop').addEventListener('click',()=>c.stop());
+      this.components.push(c);
+    });
+    // scope
+    const cvs=document.getElementById(scopeId), g=cvs.getContext('2d'); this.an.fftSize=1024; const buf=new Uint8Array(this.an.fftSize);
+    const resize=()=>{cvs.width=cvs.clientWidth; cvs.height=cvs.clientHeight;}; window.addEventListener('resize',resize,{passive:true}); resize();
+    const draw=()=>{ requestAnimationFrame(draw); this.an.getByteTimeDomainData(buf);
+      g.fillStyle='#000'; g.fillRect(0,0,cvs.width,cvs.height); g.strokeStyle='#33ff33'; g.beginPath(); const sl=cvs.width/buf.length; let x=0; g.moveTo(0,cvs.height/2);
+      for(const v of buf){ const y=(v/128)*cvs.height/2; g.lineTo(x,y); x+=sl; } g.stroke(); }; draw();
+  }
+  openAll(){ this.components.forEach(c=>c.start()); }
+  muteAll(){ this.components.forEach(c=>c.stop()); }
+}
+const alarms=[ new Alarm(document.getElementById('alarm1'),'scope1'), new Alarm(document.getElementById('alarm2'),'scope2'), new Alarm(document.getElementById('alarm3'),'scope3') ];
+
+/* ===== レイヤー切替（クロスフェード＋保持＋フォールバック） ===== */
+let currentIdx=-1, lastMps=NaN, muteTimer=null, holdUntil=0;
+const OVERLAP_MS=180;      // クロスフェード時間
+const HOLD_MS=250;         // 一致しなくても直前レイヤーを保つ時間
+
+function readRange(minId,maxId){
+  const min=parseFloat(document.getElementById(minId).value); const max=parseFloat(document.getElementById(maxId).value);
+  return [Number.isFinite(min)?min:-Infinity, Number.isFinite(max)?max:Infinity];
+}
+function whichRange(v){
+  for(let i=1;i<=3;i++){ const [min,max]=readRange(`thr${i}_min`,`thr${i}_max`); if(v>=min && v<max) return i; }
+  return 0;
+}
+function nearestRange(v){
+  let best=1,bd=Infinity;
+  for(let i=1;i<=3;i++){
+    const [min,max]=readRange(`thr${i}_min`,`thr${i}_max`);
+    let d=0; if(v<min) d=min-v; else if(v>=max) d=v-max; else d=0;
+    if(d<bd){ bd=d; best=i; }
+  }
+  return best;
+}
+
+function switchTo(newIdx,{forceOpen=false}={}){
+  // 新レイヤーを先に開く（即時）
+  if(newIdx>0) alarms[newIdx-1].openAll();
+  // 旧レイヤーのミュートはオーバーラップ後
+  const now=performance.now();
+  if(muteTimer){ clearTimeout(muteTimer); muteTimer=null; }
+  if(currentIdx>0 && currentIdx!==newIdx){
+    const prev=currentIdx;
+    muteTimer=setTimeout(()=>{
+      if(prev>0 && prev!==newIdx) alarms[prev-1].muteAll();
+      // 念のため他もミュート
+      for(let i=1;i<=3;i++){ if(i!==newIdx) alarms[i-1].muteAll(); }
+    }, OVERLAP_MS);
+  }else{
+    // 同一レイヤー継続 or 初回
+    for(let i=1;i<=3;i++){ if(i!==newIdx) alarms[i-1].muteAll(); }
+  }
+  currentIdx=newIdx;
+  if(forceOpen && newIdx>0) alarms[newIdx-1].openAll();
+}
+
+function evaluateAll(speed,{forceOpen=false}={}){
+  const v=Number(speed); if(!Number.isFinite(v)) return;
+  const now=performance.now();
+  let idx=whichRange(v);
+  if(idx===0){
+    // 範囲に入らない瞬間：直前レイヤー保持（HOLD_MS）
+    if(currentIdx>0 && now<holdUntil){ idx=currentIdx; }
+    else{ idx=nearestRange(v); }
+  }else{
+    // 次の切替が起きるたびに保持ウィンドウを更新
+    if(idx!==currentIdx) holdUntil = now + HOLD_MS;
+  }
+  switchTo(idx,{forceOpen});
+}
+
+/* ===== 訓練モード（2秒固定、Pauseなし） ===== */
+let seriesTimer=null, seriesIdx=0, seriesVals=[], seriesPaused=false;
+const seriesInput=document.getElementById('seriesInput');
+const seriesPlay=document.getElementById('seriesPlay');
+const seriesStop=document.getElementById('seriesStop');
+const seriesStatus=document.getElementById('seriesStatus');
+const trainNow=document.getElementById('trainNow');
+
+function parseSeries(t){ const a=t.split(/[, 	
+]+/).map(s=>parseFloat(s)).filter(Number.isFinite); return a.length?a:[0]; }
+function stepOnce(){
+  if(seriesIdx>=seriesVals.length){ stopSeries(); return; }
+  let v=seriesVals[seriesIdx++]; v=Math.round(v*10)/10;
+  trainNow.textContent=v.toFixed(1);
+  evaluateAll(v,{forceOpen:true});
+}
+function startSeries(){
+  resumeAudio();
+  seriesVals=parseSeries(seriesInput.value.trim()); seriesIdx=0;
+  seriesPlay.disabled=true; seriesStop.disabled=false; seriesStatus.textContent='再生中';
+  stepOnce();
+  seriesTimer=setInterval(stepOnce,2000);
+}
+function stopSeries(){
+  if(seriesTimer){ clearInterval(seriesTimer); seriesTimer=null; }
+  seriesPlay.disabled=false; seriesStop.disabled=true; seriesStatus.textContent='停止中';
+  trainNow.textContent='--'; alarms.forEach(a=>a.muteAll());
+}
+seriesPlay.addEventListener('click', startSeries);
+seriesStop.addEventListener('click', stopSeries);
+
+/* ===== 実践モード（連動・無音隙間の抑制） ===== */
+let port, reader, running=false, frameCount=0, restarting=false, lastFrameTs=0;
+function be16(b0,b1){ return (b0<<8)|b1; }
+function headerMatches(buf,i){ if(buf[i]!==0xEB || buf[i+1]!==0xA0) return false; return ( (buf[i+2]===0x08 || buf[i+2]===0x10) && buf[i+3]===0x00 ); }
+function parseFrame16(f){ const p3 = be16(f[8],f[9]); return { raw:p3 }; }
+
+async function cleanupSerial(){
+  running=false;
+  try{ await reader?.cancel(); }catch{} try{ reader?.releaseLock(); }catch{} try{ await port?.close(); }catch{}
+  reader=undefined; port=undefined;
+  document.getElementById('serialStatus').classList.remove('connected');
+  document.getElementById('frameCount').textContent='Frames: 0';
+  document.getElementById('frameAge').textContent='Last: --ms';
+  lastFrameTs=0;
+}
+async function connectSerial(){
+  if(!('serial' in navigator)){ alert('Web Serial非対応。Chrome/Edge最新版＋HTTPSで開いてください。'); return; }
+  await cleanupSerial();
+  try{
+    let selectedPort=null;
+    try{ selectedPort=await navigator.serial.requestPort({filters:[{usbVendorId:0x10C4,usbProductId:0xEA60}]}); }
+    catch{ selectedPort=await navigator.serial.requestPort(); }
+    port=selectedPort;
+    await port.open({ baudRate:9600, dataBits:8, parity:'none', stopBits:1, flowControl:'none', bufferSize:32768 });
+    document.getElementById('serialStatus').classList.add('connected');
+    document.getElementById('realtimeStart').disabled=false;
+  }catch(e){ alert('接続失敗: '+e.message); }
+}
+document.getElementById('serialConnect').addEventListener('click', connectSerial);
+
+async function readLoopBinary(){
+  if(!port?.readable){ return; }
+  reader = port.readable.getReader();
+  let buf = new Uint8Array(0);
+  while(running){
+    try{
+      const { value, done } = await reader.read();
+      if(done || !running) break;
+      if(!value || !value.length) continue;
+      if(buf.length > 65536) buf = buf.slice(-8192);
+      const merged = new Uint8Array(buf.length + value.length);
+      merged.set(buf); merged.set(value, buf.length); buf = merged;
+
+      let i=0;
+      const now=performance.now();
+      while(i <= buf.length - 16){
+        if(headerMatches(buf,i)){
+          const frame = buf.slice(i, i+16);
+          if(frame[14]===0x10 && frame[15]===0x00){
+            const { raw } = parseFrame16(frame);
+            const mps = raw/100; lastMps=mps;
+            lastFrameTs=now; frameCount++; document.getElementById('frameCount').textContent='Frames: '+frameCount;
+            document.getElementById('windDisplay').textContent = mps.toFixed(1);
+            evaluateAll(mps,{forceOpen:true});
+            i += 16; continue;
+          }
+        }
+        i += 1;
+      }
+      buf = buf.slice(i);
+    }catch(e){
+      if(!restarting){
+        restarting=true;
+        try{ await reader?.cancel(); }catch{} try{ reader?.releaseLock(); }catch{}
+        setTimeout(()=>{ restarting=false; if(running) readLoopBinary(); }, 60);
+      }else{ break; }
+    }
+  }
+  try{ reader.releaseLock(); }catch{}
+}
+setInterval(()=>{
+  if(!running) return;
+  const age = lastFrameTs? Math.max(0, performance.now()-lastFrameTs) : NaN;
+  if(Number.isFinite(age)) document.getElementById('frameAge').textContent='Last: '+Math.round(age)+'ms';
+  if(age>400 && Number.isFinite(lastMps)){ evaluateAll(lastMps,{forceOpen:true}); }
+}, 80);
+
+async function startRealtime(){
+  if(!port){ alert('未接続です'); return; }
+  resumeAudio();
+  running=true; frameCount=0; document.getElementById('frameCount').textContent='Frames: 0'; lastFrameTs=0;
+  document.getElementById('realtimeStart').disabled=true; document.getElementById('realtimeStop').disabled=false;
+  if(Number.isFinite(lastMps)){
+    document.getElementById('windDisplay').textContent = lastMps.toFixed(1);
+    evaluateAll(lastMps,{forceOpen:true});
+  }
+  readLoopBinary();
+}
+async function stopRealtime(){
+  running=false; document.getElementById('realtimeStart').disabled=false; document.getElementById('realtimeStop').disabled=true;
+  try{ await reader?.cancel(); }catch{} try{ reader?.releaseLock(); }catch{} reader=undefined;
+  alarms.forEach(a=>a.muteAll());
+}
+document.getElementById('realtimeStart').addEventListener('click', startRealtime);
+document.getElementById('realtimeStop').addEventListener('click', stopRealtime);
+</script>
+</body>
+</html>
