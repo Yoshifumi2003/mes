@@ -2,7 +2,7 @@
 <html lang='ja'>
 <head>
 <meta charset='utf-8'>
-<title>♪オトノシラセ</title>
+<title>otonoshirase</title>
 <meta name='viewport' content='width=device-width, initial-scale=1'>
 <style>
 :root{--header-bg:#ffb84d;--btn-blue:#007bff;--btn-red:#dc3545;--btn-green:#28a745;--border:#1976d2;--card-bg:#ffffff;}
@@ -49,7 +49,7 @@ h2 ruby rt{font-size:.55em;}
 <header>
   <div class='title'>♪オトノシラセ</div>
   <div class='brand'>MORITA Education System×道北音楽教育研究所<br>©2025 Yoshifumi Morita</div>
-  <div class='center-badge'><span class='code5003'><span style="color:#ffe0b3;">5003</span></span></div>
+  <div class='center-badge'><span class='code5003'><span style=\"color:#ffe0b3;\">5003</span></span></div>
 </header>
 <main>
 <section class='card' id='sec1'>
@@ -59,27 +59,28 @@ h2 ruby rt{font-size:.55em;}
     <h3><ruby>警報音<rt>けいほうおん</rt></ruby>1</h3>
     <div class='row'>
       <label><ruby>構成音<rt>こうせいおん</rt></ruby>A</label>
-      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option value='sine'>①sine</option><option value='square'>②square</option><option value='sawtooth'>③sawtooth</option><option value='triangle'>④triangle</option></select>
       <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.6'>
       <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
+      
       <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
-      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></ruby></button>
     </div>
     <div class='row'>
       <label><ruby>構成音<rt>こうせいおん</rt></ruby>B</label>
-      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option value='sine'>①sine</option><option value='square'>②square</option><option value='sawtooth'>③sawtooth</option><option value='triangle'>④triangle</option></select>
       <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.5'>
       <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
       <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
-      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></ruby></button>
     </div>
     <div class='row'>
       <label><ruby>構成音<rt>こうせいおん</rt></ruby>C</label>
-      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option value='sine'>①sine</option><option value='square'>②square</option><option value='sawtooth'>③sawtooth</option><option value='triangle'>④triangle</option></select>
       <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.4'>
       <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
       <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
-      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></ruby></button>
     </div>
     <div class='canvas-wrap'><canvas id='scope1'></canvas></div>
   </div>
@@ -88,27 +89,27 @@ h2 ruby rt{font-size:.55em;}
     <h3><ruby>警報音<rt>けいほうおん</rt></ruby>2</h3>
     <div class='row'>
       <label><ruby>構成音<rt>こうせいおん</rt></ruby>A</label>
-      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option value='sine'>①sine</option><option value='square'>②square</option><option value='sawtooth'>③sawtooth</option><option value='triangle'>④triangle</option></select>
       <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.6'>
       <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
       <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
-      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></ruby></button>
     </div>
     <div class='row'>
       <label><ruby>構成音<rt>こうせいおん</rt></ruby>B</label>
-      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option value='sine'>①sine</option><option value='square'>②square</option><option value='sawtooth'>③sawtooth</option><option value='triangle'>④triangle</option></select>
       <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.5'>
       <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
       <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
-      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></ruby></button>
     </div>
     <div class='row'>
       <label><ruby>構成音<rt>こうせいおん</rt></ruby>C</label>
-      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option value='sine'>①sine</option><option value='square'>②square</option><option value='sawtooth'>③sawtooth</option><option value='triangle'>④triangle</option></select>
       <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.4'>
       <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
       <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
-      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></ruby></button>
     </div>
     <div class='canvas-wrap'><canvas id='scope2'></canvas></div>
   </div>
@@ -117,27 +118,27 @@ h2 ruby rt{font-size:.55em;}
     <h3><ruby>警報音<rt>けいほうおん</rt></ruby>3</h3>
     <div class='row'>
       <label><ruby>構成音<rt>こうせいおん</rt></ruby>A</label>
-      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option value='sine'>①sine</option><option value='square'>②square</option><option value='sawtooth'>③sawtooth</option><option value='triangle'>④triangle</option></select>
       <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.6'>
       <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
       <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
-      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></ruby></button>
     </div>
     <div class='row'>
       <label><ruby>構成音<rt>こうせいおん</rt></ruby>B</label>
-      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option value='sine'>①sine</option><option value='square'>②square</option><option value='sawtooth'>③sawtooth</option><option value='triangle'>④triangle</option></select>
       <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.5'>
       <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
       <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
-      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></ruby></button>
     </div>
     <div class='row'>
       <label><ruby>構成音<rt>こうせいおん</rt></ruby>C</label>
-      <label class='shift-label'>タイプ</label><select class='typeSel'><option>sine</option><option>square</option><option>sawtooth</option><option>triangle</option></select>
+      <label class='shift-label'>タイプ</label><select class='typeSel'><option value='sine'>①sine</option><option value='square'>②square</option><option value='sawtooth'>③sawtooth</option><option value='triangle'>④triangle</option></select>
       <label class='shift-label'><ruby>音量<rt>おんりょう</rt></ruby></label><input class='volR' type='range' min='0' max='1' step='0.01' value='0.4'>
       <label class='shift-label'><ruby>周波数<rt>しゅうはすう</rt></ruby></label><input class='freqN' type='number' value='100' min='20' max='20000'>
       <label class='shift-label'>リズム</label><input class='ryR' type='range' min='0' max='10' step='1' value='0'>
-      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></button>
+      <button class='start'><ruby>開始<rt>かいし</rt></ruby></button><button class='stop'><ruby>停止<rt>ていし</rt></ruby></button>
     </div>
     <div class='canvas-wrap'><canvas id='scope3'></canvas></div>
   </div>
@@ -233,7 +234,7 @@ class SoundComponent{
   applyVol(){ const t=audioCtx.currentTime, v=this.muted?0:clamp(this.params.vol,0,1); this.out.gain.cancelScheduledValues(t); this.out.gain.setTargetAtTime(v,t,0.004); }
   applyRhythm(){
     const t=audioCtx.currentTime;
-    if(this.pwm){ try{this.pwm.saw.stop(t+0.01);}catch{} try{ this.pwm.saw.disconnect(); this.pwm.bias.disconnect(); this.pwm.sum.disconnect(); this.pwm.st.disconnect();}catch{} this.pwm=null; }
+    if(this.pwm){ try{this.pwm.saw.stop(t+0.01);}catch{} try{this.pwm.saw.disconnect(); this.pwm.bias.disconnect(); this.pwm.sum.disconnect(); this.pwm.st.disconnect();}catch{} this.pwm=null; }
     const r=Math.round(clamp(+this.params.rhythm||0,0,10));
     if(r<=0){ this.vca.gain.setValueAtTime(1,t); return; }
     const pwm=createPWM(mapRate(r), mapDuty(r)); pwm.st.connect(this.vca.gain); this.pwm=pwm;
@@ -266,10 +267,14 @@ class Alarm{
   openAll(){ this.components.forEach(c=>c.start()); }
   muteAll(){ this.components.forEach(c=>c.stop()); }
 }
-const alarms=[ new Alarm(document.getElementById('alarm1'),'scope1'), new Alarm(document.getElementById('alarm2'),'scope2'), new Alarm(document.getElementById('alarm3'),'scope3') ];
+const alarms=[
+  new Alarm(document.getElementById('alarm1'),'scope1'),
+  new Alarm(document.getElementById('alarm2'),'scope2'),
+  new Alarm(document.getElementById('alarm3'),'scope3')
+];
 
 /* ===== レイヤー切替（クロスフェード＋保持＋フォールバック） ===== */
-let currentIdx=-1, lastMps=NaN, muteTimer=null, holdUntil=0;
+let currentIdx=-1, lastMps=NaN, muteTimer=null, holdUntil=0, lastValidTs=0, lastChosenIdx=0;
 const OVERLAP_MS=180;      // クロスフェード時間
 const HOLD_MS=250;         // 一致しなくても直前レイヤーを保つ時間
 
@@ -278,7 +283,8 @@ function readRange(minId,maxId){
   return [Number.isFinite(min)?min:-Infinity, Number.isFinite(max)?max:Infinity];
 }
 function whichRange(v){
-  for(let i=1;i<=3;i++){ const [min,max]=readRange(`thr${i}_min`,`thr${i}_max`); if(v>=min && v<max) return i; }
+  // Upper bounds are inclusive to avoid gaps (e.g., 2.0 belongs to 1–2)
+  for(let i=1;i<=3;i++){ const [min,max]=readRange(`thr${i}_min`,`thr${i}_max`); if(v>=min && v<=max) return i; }
   return 0;
 }
 function nearestRange(v){
@@ -312,20 +318,17 @@ function switchTo(newIdx,{forceOpen=false}={}){
   if(forceOpen && newIdx>0) alarms[newIdx-1].openAll();
 }
 
-function evaluateAll(speed,{forceOpen=false}={}){
-  const v=Number(speed); if(!Number.isFinite(v)) return;
-  const now=performance.now();
-  let idx=whichRange(v);
-  if(idx===0){
-    // 範囲に入らない瞬間：直前レイヤー保持（HOLD_MS）
-    if(currentIdx>0 && now<holdUntil){ idx=currentIdx; }
-    else{ idx=nearestRange(v); }
-  }else{
-    // 次の切替が起きるたびに保持ウィンドウを更新
-    if(idx!==currentIdx) holdUntil = now + HOLD_MS;
-  }
-  switchTo(idx,{forceOpen});
-}
+function evaluateAll(speed,{forceOpen=false}={}){  const v = Number(speed);  if(!Number.isFinite(v)) return;  const idx = whichRange(v);  const now = performance.now();  if(idx===0){
+    // (patched) below all user-defined thresholds: always mute in training
+    if(running && currentIdx>0 && (now - lastValidTs) < 600){
+      lastChosenIdx=currentIdx;
+      switchTo(currentIdx,{forceOpen});
+      return;
+    }
+    lastChosenIdx=0; switchTo(0); return;
+  }  lastValidTs = now;  if(idx!==currentIdx){ holdUntil = now + HOLD_MS; }  lastChosenIdx=idx;  switchTo(idx,{forceOpen});}
+
+
 
 /* ===== 訓練モード（2秒固定、Pauseなし） ===== */
 let seriesTimer=null, seriesIdx=0, seriesVals=[], seriesPaused=false;
@@ -335,17 +338,15 @@ const seriesStop=document.getElementById('seriesStop');
 const seriesStatus=document.getElementById('seriesStatus');
 const trainNow=document.getElementById('trainNow');
 
-function parseSeries(t){ const a=t.split(/[, 	
-]+/).map(s=>parseFloat(s)).filter(Number.isFinite); return a.length?a:[0]; }
+function parseSeries(t){ const a=t.split(/[, \t\r\n]+/).map(s=>parseFloat(s)).filter(Number.isFinite); return a.length?a:[0]; }
 function stepOnce(){
   if(seriesIdx>=seriesVals.length){ stopSeries(); return; }
   let v=seriesVals[seriesIdx++]; v=Math.round(v*10)/10;
   trainNow.textContent=v.toFixed(1);
   evaluateAll(v,{forceOpen:true});
+  // (patched) no fallback reopen in training mode when below thresholds
 }
-function startSeries(){
-  resumeAudio();
-  seriesVals=parseSeries(seriesInput.value.trim()); seriesIdx=0;
+function startSeries(){ switchTo(0); resumeAudio(); lastChosenIdx=0; currentIdx=0; lastValidTs=0; alarms.forEach(a=>a.muteAll()); seriesVals=parseSeries(seriesInput.value.trim()); seriesIdx=0;
   seriesPlay.disabled=true; seriesStop.disabled=false; seriesStatus.textContent='再生中';
   stepOnce();
   seriesTimer=setInterval(stepOnce,2000);
@@ -456,3 +457,4 @@ document.getElementById('realtimeStop').addEventListener('click', stopRealtime);
 </script>
 </body>
 </html>
+
