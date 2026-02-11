@@ -139,6 +139,61 @@ function addSidebarRow(index,audio){
   sidebar.appendChild(row);
 }
 
+
+/* ================== Row compaction (no blank rows) ================== */
+function nextRowIndex(){
+  // Number of existing visible rows (sidebar rows are the single source of truth)
+  return document.querySelectorAll('#trackSidebar .trackSidebar').length;
+}
+
+function compactTracks(){
+  // Build ordered list of existing rows (prefer sidebar order; fallback to track dataset rows)
+  const sidebarRows = Array.from(document.querySelectorAll('#trackSidebar .trackSidebar'));
+  let orderedOldRows = sidebarRows
+    .map(r => parseInt(r.dataset.row))
+    .filter(n => !isNaN(n));
+
+  if(orderedOldRows.length === 0){
+    const trackRows = Array.from(document.querySelectorAll('.track'))
+      .map(t => parseInt(t.dataset.row))
+      .filter(n => !isNaN(n));
+    orderedOldRows = [...new Set(trackRows)].sort((a,b)=>a-b);
+  }
+
+  // Map old row index -> new compact index (0..)
+  const map = new Map();
+  orderedOldRows.forEach((oldRow, newRow)=>map.set(oldRow, newRow));
+
+  // Reposition sidebar rows + renumber labels if they are still default "Track N"
+  const defaultLabelRe = /^Track\s+\d+$/;
+  Array.from(document.querySelectorAll('#trackSidebar .trackSidebar')).forEach(sb=>{
+    const oldRow = parseInt(sb.dataset.row);
+    const newRow = map.has(oldRow) ? map.get(oldRow) : null;
+    if(newRow === null) return;
+    sb.dataset.row = String(newRow);
+    sb.style.top = (rowGap + newRow * trackSpacing) + 'px';
+
+    const label = sb.querySelector('div');
+    if(label && defaultLabelRe.test(label.textContent.trim())){
+      label.textContent = `Track ${newRow+1}`;
+    }
+  });
+
+  // Reposition tracks (all clips) belonging to each row
+  Array.from(document.querySelectorAll('.track')).forEach(tr=>{
+    const oldRow = parseInt(tr.dataset.row);
+    const newRow = map.has(oldRow) ? map.get(oldRow) : null;
+    if(newRow === null) return;
+    tr.dataset.row = String(newRow);
+    tr.style.top = (rowGap + newRow * trackSpacing) + 'px';
+  });
+
+  // Ensure future "new row" index is correct
+  trackIndex = nextRowIndex();
+}
+
+
+
 /* ================== GLOBAL pointer resize state (Edge-safe) ================== */
 let r_active=false;
 let r_side=null; // 'left' | 'right'
@@ -241,11 +296,15 @@ function enhanceTrack(track,audio){
   del.textContent='×';
   del.style.cssText='position:absolute;right:10px;top:5px;';
   del.onclick=()=>{
-    const removedTop=pxInt(track.style.top);
+    const removedRow = parseInt(track.dataset.row);
     track.remove();
-    const tracksSameRow=Array.from(document.querySelectorAll('.track')).filter(t=>pxInt(t.style.top)===removedTop);
-    if(tracksSameRow.length===0){
-      document.querySelectorAll('.trackSidebar').forEach(sb=>{ if(pxInt(sb.style.top)===removedTop) sb.remove(); });
+
+    const remainingInRow = Array.from(document.querySelectorAll('.track'))
+      .filter(t => parseInt(t.dataset.row) === removedRow);
+
+    if(remainingInRow.length===0){
+      const sb = document.querySelector(`#trackSidebar .trackSidebar[data-row="${removedRow}"]`);
+      if(sb) sb.remove();
     }
     compactTracks();
   };
@@ -313,22 +372,24 @@ recordBtn.onclick = () => {
     mediaRecorder.onstop=()=>{
       const blob=new Blob(chunks,{type:'audio/webm'});
       currentAudioEl.src=URL.createObjectURL(blob);
-      trackIndex++;
+      trackIndex = nextRowIndex();
       chunks=[];
     };
     mediaRecorder.start();
 
     // create track
-    const top=rowGap+trackIndex*trackSpacing;
+    const rowIndex = nextRowIndex();
+    const top=rowGap+rowIndex*trackSpacing;
     currentTrackEl=document.createElement('div');
     currentTrackEl.className='track';
     currentTrackEl.dataset.trimStartSec = 0;
-    currentTrackEl.dataset.row=trackIndex;
-    Object.assign(currentTrackEl.style,{left:'0px',top:top+'px',width:'1px',backgroundColor:trackColors[trackIndex%trackColors.length]});
+    currentTrackEl.dataset.row=rowIndex;
+    Object.assign(currentTrackEl.style,{left:'0px',top:top+'px',width:'1px',backgroundColor:trackColors[rowIndex%trackColors.length]});
     currentAudioEl=document.createElement('audio');
     currentTrackEl.appendChild(currentAudioEl);
     document.getElementById('tracksContainer').appendChild(currentTrackEl);
-    addSidebarRow(trackIndex,currentAudioEl);
+    addSidebarRow(rowIndex,currentAudioEl);
+    trackIndex = nextRowIndex();
 
     // timer
     const startT=Date.now();
@@ -370,18 +431,19 @@ hiddenFile.onchange=e=>{
   if(typeof recTimeLabel !== 'undefined') setRecTime(0);
 };
 function addTrackFromFile(url,label){
-  const top=rowGap+trackIndex*trackSpacing;
+  const rowIndex = nextRowIndex();
+  const top=rowGap+rowIndex*trackSpacing;
   const tr=document.createElement('div');
   tr.className='track';
   tr.dataset.trimStartSec = 0;
-  tr.dataset.row = trackIndex;
-  Object.assign(tr.style,{left:'0px',top:top+'px',width:'100px',backgroundColor:trackColors[trackIndex%trackColors.length]});
+  tr.dataset.row = rowIndex;
+  Object.assign(tr.style,{left:'0px',top:top+'px',width:'100px',backgroundColor:trackColors[rowIndex%trackColors.length]});
   const au=document.createElement('audio');au.src=url;tr.appendChild(au);
   document.getElementById('tracksContainer').appendChild(tr);
-  addSidebarRow(trackIndex,au);
+  addSidebarRow(rowIndex,au);
+  trackIndex = nextRowIndex();
   enhanceTrack(tr,au);
   au.addEventListener('loadedmetadata',()=>{tr.style.width=(au.duration*beatWidth)+'px';});
-  trackIndex++;
 }
 
 /* ================== Playback ================== */
@@ -464,6 +526,7 @@ async function saveProject(){
 function clearProject(){
   document.getElementById('tracksContainer').innerHTML='';
   document.getElementById('trackSidebar').innerHTML='';
+  trackIndex = 0;
 }
 function loadProject(data){
   clearProject();
@@ -497,7 +560,10 @@ function loadProject(data){
       });
     }
     enhanceTrack(tr,au);
-  });
+  })
+  // Reflow rows to remove any gaps and keep Track numbers sequential
+  compactTracks();
+;
 }
 saveBtn.addEventListener('click',saveProject);
 openBtn.addEventListener('click',async ()=>{
